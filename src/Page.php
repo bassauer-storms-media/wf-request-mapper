@@ -1,6 +1,6 @@
 <?php
 
-namespace phpRequetsMapper;
+namespace phpRequestMapper;
 
 /*
  * Page class implementation for EXISTING pages (only)

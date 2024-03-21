@@ -1,6 +1,6 @@
 <?php
 
-namespace phpRequetsMapper;
+namespace phpRequestMapper;
 
 /*
  * global class that allows access to the current page request

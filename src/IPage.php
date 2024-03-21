@@ -1,6 +1,6 @@
 <?php
 
-namespace phpRequetsMapper;
+namespace phpRequestMapper;
 
 interface IPage {
 

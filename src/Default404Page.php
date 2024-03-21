@@ -1,6 +1,6 @@
 <?php
 
-namespace phpRequetsMapper;
+namespace phpRequestMapper;
 
 /*
  * this default class just returns false for all methods
