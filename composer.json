@@ -20,9 +20,6 @@
         "psr-4": {
             "phpRequestMapper\\": "src/"
         }
-    },
-
-    "minimum-stability": "dev",
-    "prefer-stable": true
+    }
 
 }
