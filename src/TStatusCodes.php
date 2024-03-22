@@ -1,6 +1,6 @@
 <?php
 
-namespace phpRequestMapper;
+namespace serjoscha87\phpRequestMapper;
 
 trait TStatusCodes {
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace phpRequestMapper;
+namespace serjoscha87\phpRequestMapper;
 
 class RequestMapper {
 
@@ -27,9 +27,9 @@ class RequestMapper {
     /**
      * @param string $uri the request to run the mapper against
      * @param RequestMapperConfig|null $config if null the global config will be used or if no global config is confiured a default config will be used
-     * @param Closure|null $beforeRun allows to inject logic before the mapper runs
+     * @param \Closure|null $beforeRun allows to inject logic before the mapper runs
      */
-    public function __construct(string $uri, RequestMapperConfig $config = null, ?Closure $beforeRun = null) {
+    public function __construct(string $uri, RequestMapperConfig $config = null, ?\Closure $beforeRun = null) {
         $this->config = $config; // when for example using CurrentRequest $config will never be passed - note that $this->getConfig() trys to get the config from $this->config or alternatively from self::global_config
         if($beforeRun)
             $beforeRun($this);

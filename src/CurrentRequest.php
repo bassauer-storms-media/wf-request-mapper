@@ -1,6 +1,6 @@
 <?php
 
-namespace phpRequestMapper;
+namespace serjoscha87\phpRequestMapper;
 
 class CurrentRequest {
 
@@ -8,13 +8,13 @@ class CurrentRequest {
 
     private ?RequestMapper $request_mapper = null;
 
-    public function __construct(?Closure $beforeRun = null) {
+    public function __construct(?\Closure $beforeRun = null) {
         $this->request_mapper = new RequestMapper(uri: $_SERVER['REQUEST_URI'], beforeRun: ($beforeRun ?? function(RequestMapper $rm) {
             $rm->setInstancedBy(self::class /* => "CurrentRequest" */);
         }));
     }
 
-    public static function inst(?Closure $beforeRun = null) : ?CurrentRequest {
+    public static function inst(?\Closure $beforeRun = null) : ?CurrentRequest {
         if(!self::$instance)
             self::$instance = new self($beforeRun);
         return self::$instance;
@@ -56,6 +56,16 @@ class CurrentRequest {
 
     public static function getRedirectUri(string $prefix = '') : string|null {
         return self::inst()->mapper()->getRedirectUri($prefix);
+    }
+
+    public static function isAjax() {
+        return (
+            (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && ($_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest')) 
+            ||
+            (isset($_SERVER["CONTENT_TYPE"]) && stripos($_SERVER["CONTENT_TYPE"], 'application/json') !== false) 
+            ||
+            (isset($_SERVER["HTTP_CONTENT_TYPE"]) && stripos($_SERVER["HTTP_CONTENT_TYPE"], 'application/json') !== false)
+        );
     }
 
 }

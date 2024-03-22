@@ -18,7 +18,7 @@
 
     "autoload": {
         "psr-4": {
-            "phpRequestMapper\\": "src/"
+            "serjoscha87\\phpRequestMapper\\": "src/"
         }
     }
 
