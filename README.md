@@ -31,6 +31,8 @@ pages
   - detail.php
 ```
 
+(of course the level of dir-nesting is not limited by the request-mapper)
+
 **index.php:**
 
 ```
