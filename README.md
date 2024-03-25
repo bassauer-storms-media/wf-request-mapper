@@ -1,16 +1,17 @@
-# PHP request-mapper / auto-router / request-to-file-resolver
+# PHP request-mapper / auto-router / request-to-file-resolver for pretty URLs
 
 > README STILL ON THE WAY TO COMPLETENESS <
 
 ## Purpose
 
-Ever though that it can not be that hard to reflect smart-url requets to files on your server's file-system? Well. Trying it you will quickly face edge cases that will convince you of the opposite.
+Ever though that it can not be that hard to reflect pretty-url requets to files on your server's file-system? Well. Trying it you will quickly face edge cases that will convince you of the opposite.
+This requets-mapper does the heavy lifting of reflecting pretty-url request to files on the local filesystem of the server while serving you a configurable abstraction layer.
 
-This requets-mapper does the heavy lifting of reflecting request to files on the local filesystem of the server while serving you a configurable abstraction layer.
+The lib 
+  -  Basically renders the need of a php-router for manual route-bindings obsolete
+  -  Can simply be dropped in any project to easily add pretty URLs that are automatically reflected to the filesystem
 
-Basically this lib renders the need of a php-router for manual route-bindings obsolete.
-
-I primarily wrote this for using it within a framework for more or less static websites (not apps) I wrote some time ago. But actually this lib may be used beyond this purpose I guess.
+I primarily wrote this for using it within a framework for more or less static websites (not apps) I wrote some time ago. But perhaps this lib can be used beyond its actual purpose.
 
 ## Installation
 
@@ -22,16 +23,16 @@ I primarily wrote this for using it within a framework for more or less static w
 
 _the all known 'wordpress' rewrite rule:_
 
-``
+```
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . index.php [L]
-``
+```
 
 **Nginx rewrites requests to the index.php by default - not extra rules needed.**
 
-## Simple Example
+## Simple usage Example
 
 **filesystem:**
 ```
@@ -77,9 +78,9 @@ if(!CurrentRequest::isReal404())
     require_once $currentPage->getFilePath(); // this will automatically send out the content of the 404 page if the page requested and mapped does not exist - otherwise it will deliver the content of the files the mapper mapped
 ```
 
-### Examples for better understanding what the request mapper is good for
+### Examples for better understanding what the request mapper does for you
 
-considering the filesys structure given above (see "Simple Example"):
+considering the filesys structure given above (see "Simple usage Example"):
 
   - Request to: ``/test`` -> will deliver the content of ``pages/test.php``
   - Request to: ``/quxx`` -> will deliver the content of ``pages/404.php`` (because there is no quxx.php in the pages dir)
