@@ -16,6 +16,21 @@ I primarily wrote this for using it within a framework for more or less static w
 
 ``composer require serjoscha87/php-request-mapper``
 
+### .htaccess
+
+**For Apache Webservers:**
+
+_the all known 'wordpress' rewrite rule:_
+
+``
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . index.php [L]
+``
+
+**Nginx rewrites requests to the index.php by default - not extra rules needed.**
+
 ## Simple Example
 
 **filesystem:**
