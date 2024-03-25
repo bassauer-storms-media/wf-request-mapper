@@ -52,7 +52,8 @@ var_dump($currentPage->getFilePath());
 if(CurrentRequest::needsRedirect())
   // ... do the header redirect here (you can utilize CurrentRequest::getRedirectUri() for that)
 
-require_once $currentPage->getFilePath(); // this will automatically send out the content of the 404 page if the page requested and mapped does not exist - otherwise it will deliver the content of the files the mapper mapped
+if(!CurrentRequest::inst()->mapper()->isReal404())
+    require_once $currentPage->getFilePath(); // this will automatically send out the content of the 404 page if the page requested and mapped does not exist - otherwise it will deliver the content of the files the mapper mapped
 ```
 
 ### Examples for better understanding what the request mapper is good for
@@ -81,6 +82,24 @@ $rm = new RequestMapper('/my-emulation-url');
 up to come...
 
 but generally pages base-dir, file-extensions, route-prefixes and base-paths are configurable
+
+## RequestMapper::isReal404()
+
+...
+important thing...
+Imagine you let the request mapper answer all 404 requests with a cool html error page. 
+Now imagine you are having a gallery in your websites which has some wrong path references and causes 20 of the images to run into a 404.
+Without making your logic check if the request is a 'real404' every of those asset requests will return a pretty 404 page markup. 
+You just don't want this if you are using a framework like me - because this means your framework will not only be booted for handling the actual website request but also for every single 404 asset request which causes massive server load for noting.
+This is why the request mapper has this method. 
+Make sure to use it before sending out the page html:
+
+```
+if(!CurrentRequest::inst()->mapper()->isReal404()) {
+     // your logic for outputting the page content here
+}
+```
+...
 
 ## misc
 
