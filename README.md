@@ -51,10 +51,14 @@ var_dump($currentPage->getFilePath());
 // ...
 
 // send the page out for rendering
-if(CurrentRequest::needsRedirect())
-  // ... do the header redirect here (you can utilize CurrentRequest::getRedirectUri() for that)
+if(CurrentRequest::needsRedirect()) {
+  // ... do the header redirect here
+  header('HTTP/1.0 404 Not Found');
+  header('Location: ' . CurrentRequest::getRedirectUri());
+  exit;
+}
 
-if(!CurrentRequest::inst()->mapper()->isReal404())
+if(!CurrentRequest::isReal404())
     require_once $currentPage->getFilePath(); // this will automatically send out the content of the 404 page if the page requested and mapped does not exist - otherwise it will deliver the content of the files the mapper mapped
 ```
 
