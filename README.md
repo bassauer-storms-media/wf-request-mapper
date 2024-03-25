@@ -4,13 +4,13 @@
 
 ## Purpose
 
-Ever though that it can not be that hard to map smart-url requets to files on your server's file-system? Well. Trying it you will quickly approch edge cases that will convince you of the opposite.
+Ever though that it can not be that hard to reflect smart-url requets to files on your server's file-system? Well. Trying it you will quickly face edge cases that will convince you of the opposite.
 
-This requets-mapper does the heavy lifting of mapping request to files on the local filesystem of the server while serving you a configurable abstraction layer.
+This requets-mapper does the heavy lifting of reflecting request to files on the local filesystem of the server while serving you a configurable abstraction layer.
 
 Basically this lib renders the need of a php-router for manual route-bindings obsolete.
 
-I primarily wrote this for using it withing within a framework I wrote for more or less static websites (not apps). But actually this lib may be used beyond this aim.
+I primarily wrote this for using it within a framework for more or less static websites (not apps) I wrote some time ago. But actually this lib may be used beyond this purpose I guess.
 
 ## Installation
 
@@ -57,16 +57,16 @@ require_once $currentPage->getFilePath(); // this will automatically send out th
 
 ### Examples for better understanding what the request mapper is good for
 
-considering the filesys structure given above:
+considering the filesys structure given above (see "Simple Example"):
 
-  - Request to: /test -> will deliver the content of 'pages/test.php'
-  - Request to: /quxx -> will deliver the content of 'pages/404.php' (because there is no quxx.php in the pages dir)
-  - Request to: / -> will deliver the content of 'pages/home.php'
-  - Request to: /home -> the requestmapper will tell you that a redirect to '/' is required (through CurrentRequest::needsRedirect() - you can use CurrentRequest::getRedirectUri() to get the redirect target)
-  - Request to: /foobar/foobar -> the requestmapper will tell you that a redirect to '/foobar' is required (see above)
-  - Request to: /foobar -> will deliver the content of 'pages/foobar/foobar.php'
-  - Request to: /foobar/detail/something -> will deliver the content of 'pages/foobar/detail.php' and will pass everything after /detail to the php file
-  - Request to: /foobar/abc -> like seen before ... nothing special. Will deliver the content 'pages/foobar/abc'
+  - Request to: ``/test`` -> will deliver the content of ``pages/test.php``
+  - Request to: ``/quxx`` -> will deliver the content of ``pages/404.php`` (because there is no quxx.php in the pages dir)
+  - Request to: ``/`` -> will deliver the content of ``pages/home.php``
+  - Request to: ``/home`` -> the requestmapper will tell you that a redirect to ``/`` is required (through ``CurrentRequest::needsRedirect()`` - you can use ``CurrentRequest::getRedirectUri()`` to get the redirect target)
+  - Request to: ``/foobar/foobar`` -> the requestmapper will tell you that a redirect to ``/foobar`` is required (see above)
+  - Request to: ``/foobar`` -> will deliver the content of ``pages/foobar/foobar.php``
+  - Request to: ``/foobar/detail/something`` -> will deliver the content of ``pages/foobar/detail.php`` and will pass everything after ``/detail`` to the php file
+  - Request to: ``/foobar/abc`` -> like seen before ... nothing special. Will deliver the content ``pages/foobar/abc``
 
 ### self instancing:
 
