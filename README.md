@@ -14,7 +14,7 @@ I primarily wrote this for using it withing within a framework I wrote for more 
 
 ## Installation
 
-composer require serjoscha87/php-request-mapper
+``composer require serjoscha87/php-request-mapper``
 
 ## Simple Example
 
@@ -81,3 +81,7 @@ $rm = new RequestMapper('/my-emulation-url');
 up to come...
 
 but generally pages base-dir, file-extensions, route-prefixes and base-paths are configurable
+
+## misc
+
+This lib also works perfectly fine with great template engines / implementations like [BladeOne](https://github.com/EFTEC/BladeOne)
