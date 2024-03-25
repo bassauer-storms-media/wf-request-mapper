@@ -97,7 +97,7 @@ This is why the request mapper has this method.
 Make sure to use it before sending out the page html:
 
 ```
-if(!CurrentRequest::inst()->mapper()->isReal404()) {
+if(!CurrentRequest::isReal404()) {
      // your logic for outputting the page content here
 }
 ```
