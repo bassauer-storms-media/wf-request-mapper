@@ -68,4 +68,11 @@ class CurrentRequest {
         );
     }
 
+    /*
+     * redirects the requets if needed - otherwise calls your closure to deliver the content
+     */
+    public static function handle(\Closure $fn) {
+        // NYI
+    }
+
 }
