@@ -4,9 +4,9 @@
 
 ## Purpose
 
-Ever though that it can not that be hard to map smart-url requets to file on your file-system? Well. You quickly approch edge cases that will convince you from the opposite.
+Ever though that it can not be that hard to map smart-url requets to files on your server's file-system? Well. Trying it you will quickly approch edge cases that will convince you of the opposite.
 
-This requets-mapper does the heavy lifting of mapping request to files on the local filesystem of the server while serving a configurable abstraction layer.
+This requets-mapper does the heavy lifting of mapping request to files on the local filesystem of the server while serving you a configurable abstraction layer.
 
 ## Installation
 
@@ -45,12 +45,15 @@ var_dump($currentPage->getFilePath());
 // ...
 
 // send the page out for rendering
-require_once $currentPage->getFilePath(); // this will automatically send out the content of the 404 page if the page requested and mapped does not exist
+if(CurrentRequest::needsRedirect())
+  // ... do the header redirect here (you can utilize CurrentRequest::getRedirectUri() for that)
+
+require_once $currentPage->getFilePath(); // this will automatically send out the content of the 404 page if the page requested and mapped does not exist - otherwise it will deliver the content of the files the mapper mapped
 ```
 
-### Examples for better understanding what its good for
+### Examples for better understanding what the request mapper is good for
 
-considering the filesys structure given above.
+considering the filesys structure given above:
 
   - Request to: /test -> will deliver the content of 'pages/test.php'
   - Request to: /quxx -> will deliver the content of 'pages/404.php' (because there is no quxx.php in the pages dir)
