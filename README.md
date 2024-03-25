@@ -8,6 +8,10 @@ Ever though that it can not be that hard to map smart-url requets to files on yo
 
 This requets-mapper does the heavy lifting of mapping request to files on the local filesystem of the server while serving you a configurable abstraction layer.
 
+Basically this lib renders the need of a php-router for manual route-bindings obsolete.
+
+I primarily wrote this for using it withing within a framework I wrote for more or less static websites (not apps). But actually this lib may be used beyond this aim.
+
 ## Installation
 
 composer require serjoscha87/php-request-mapper
@@ -76,4 +80,4 @@ $rm = new RequestMapper('/my-emulation-url');
 
 up to come...
 
-but generally pages dir, extensions, prefixes and base paths are configurable
+but generally pages base-dir, file-extensions, route-prefixes and base-paths are configurable
