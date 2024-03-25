@@ -25,10 +25,10 @@ pages
 - test.php
 - home.php
 - 404.php
-foobar
-- foobar.php
-- abc.php
-- detail.php
+- foobar (dir)
+  - foobar.php
+  - abc.php
+  - detail.php
 ```
 
 **index.php:**
