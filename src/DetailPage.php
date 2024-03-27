@@ -4,25 +4,25 @@ namespace serjoscha87\phpRequestMapper;
 
 class DetailPage extends Page implements IPage {
 
-    protected array $query = [];
+    protected string $query = '';
 
-    /**
-     * @throws \http\Exception\BadUrlException
-     */
-    public function __construct(RequestMapper $request_mapper, $filePath, array $query = []) {
+    public function __construct(RequestMapper $request_mapper, $filePath, string $query = '') {
         $this->query = $query;
         parent::__construct($request_mapper, $filePath);
     }
 
+    /**
+     * @return ?string the name of the parent that contains the actual detail page file. Prefixed with "detail-"
+     */
     public function getName() : string|null {
-        return $this->filePath ? sprintf('detail-%s', basename(pathinfo($this->filePath, PATHINFO_DIRNAME))) : null;
+        return $this->filePath ? sprintf('detail-%s', basename($this->getBasePath())) : null;
     }
 
-    public function getQuery() {
+    public function getQuery() : string {
         return $this->query;
     }
 
-    public function setQuery(array $query) {
+    public function setQuery(string $query) : void {
         $this->query = $query;
     }
 

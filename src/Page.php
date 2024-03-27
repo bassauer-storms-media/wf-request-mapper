@@ -8,14 +8,10 @@ namespace serjoscha87\phpRequestMapper;
 
 class Page extends PageBase implements IPage {
 
-    protected ?RequestMapper $request_mapper = null;
-    protected ?RequestMapperConfig $request_mapper_config = null;
-
     protected ?string $filePath = null;
 
     public function __construct(RequestMapper $request_mapper, $filePath) {
-        $this->request_mapper = $request_mapper;
-        $this->request_mapper_config = $request_mapper->getConfig();
+        $this->request_mapper/*< inherited from PageBase */ = $request_mapper;
         $this->filePath = $filePath;
     }
 
@@ -23,8 +19,8 @@ class Page extends PageBase implements IPage {
         return $this->getName();
     }
 
-    /*
-     * get filename without extension
+    /**
+     * @return string|null filename without extension and path (if the path is available)
      */
     public function getName() : string|null {
         return $this->filePath ? basename($this->filePath, $this->request_mapper->getFileExtension()) : null;
@@ -42,13 +38,6 @@ class Page extends PageBase implements IPage {
      */
     public function setFilePath(?string $filePath) : void {
         $this->filePath = $filePath;
-    }
-
-    /**
-     * @return RequestMapper|null
-     */
-    public function getRequestMapper() : ?RequestMapper {
-        return $this->request_mapper;
     }
 
 }

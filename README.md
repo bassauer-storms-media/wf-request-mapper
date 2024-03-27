@@ -1,11 +1,18 @@
-# PHP request-mapper / auto-router / request-to-file-resolver for pretty URLs
+# *PHP request-mapper* <small>/ auto-router / request-to-file-resolver for</small> *pretty URLs*
+
+[![Packagist](https://img.shields.io/packagist/v/serjoscha87/php-request-mapper.svg)](https://packagist.org/packages/serjoscha87/php-request-mapper)
+[![Total Downloads](https://poser.pugx.org/serjoscha87/php-request-mapper/downloads)](https://packagist.org/packages/serjoscha87/php-request-mapper)
+[![php](https://img.shields.io/badge/php-5.x-red.svg)]()
+[![php](https://img.shields.io/badge/php-7.x-red.svg)]()
+[![php](https://img.shields.io/badge/php-8.x-green.svg)]()
 
 > README STILL ON THE WAY TO COMPLETENESS <
 
 ## Purpose
 
-Ever though that it can not be that hard to reflect pretty-url requets to files on your server's file-system? Well. Trying it you will quickly face edge cases that will convince you of the opposite.
+Ever though that it can not be that hard to reflect pretty-url requets to files on your server's file-system? Well - trying it you will quickly face edge cases that will convince you of the opposite.
 This requets-mapper does the heavy lifting of reflecting pretty-url request to files on the local filesystem of the server while serving you a configurable abstraction layer.
+It can handle 404 requests out of the box so you do not have to concern about it. 
 
 The lib 
   -  Basically renders the need of a php-router for manual route-bindings obsolete
@@ -21,7 +28,7 @@ I primarily wrote this for using it within a framework for more or less static w
 
 **For Apache Webservers:**
 
-_the all known 'wordpress' rewrite rule:_
+_the all known 'wordpress' rewrite rule which rewrites all requests to things that do not physically exist to index.php:_
 
 ```
 RewriteEngine On
@@ -30,7 +37,11 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . index.php [L]
 ```
 
-**Nginx rewrites requests to the index.php by default - not extra rules needed.**
+**Nginx rewrites requests to the index.php by default - no extra rules needed.**
+
+## Requirements
+
+  - PHP8+ (because the lib makes use of named arguments and array unpacking)
 
 ## Simple usage Example
 
@@ -125,4 +136,4 @@ if(!CurrentRequest::isReal404()) {
 
 ## misc
 
-This lib also works perfectly fine with great template engines / implementations like [BladeOne](https://github.com/EFTEC/BladeOne)
+This lib also works perfectly fine with great template engines / implementations like [BladeOne](https://github.com/serjoscha87/php-request-mapper)

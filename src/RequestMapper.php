@@ -4,14 +4,13 @@ namespace serjoscha87\phpRequestMapper;
 
 class RequestMapper {
 
-    use TStatusCodes;
-
     private ?string $uri = null;
     private ?string $original_request_path = null; // the original request path (for example '/test///foo/bar///quxx/') without any query string
     private ?string $original_request_query = null;
     private ?RequestMapperConfig $config = null;
     public static ?RequestMapperConfig $global_config = null; 
 
+    public static $DETERMINE_INSTANCED_BY = false; // if true the instanced_by property will be set to the class name that instanced the RequestMapper instance
     private ?string $instanced_by = null; // can internally be used to store who instanced this class - if its null it can be considered user-code/implementation instanced
     public function setInstancedBy(string $instanced_by) : void {
         $this->instanced_by = $instanced_by;
@@ -20,19 +19,28 @@ class RequestMapper {
         return $this->instanced_by;
     }
 
-    private $page_file_exists = null;
+    private ?bool $page_file_exists = null;
+
+    private bool $is_detail_page_request = false;
+    private ?string $detail_page_query = null;
 
     private ?IPage $page = null;
+
+    private array $CACHE = [];
 
     /**
      * @param string $uri the request to run the mapper against
      * @param RequestMapperConfig|null $config if null the global config will be used or if no global config is confiured a default config will be used
-     * @param \Closure|null $beforeRun allows to inject logic before the mapper runs
      */
-    public function __construct(string $uri, RequestMapperConfig $config = null, ?\Closure $beforeRun = null) {
-        $this->config = $config; // when for example using CurrentRequest $config will never be passed - note that $this->getConfig() trys to get the config from $this->config or alternatively from self::global_config
-        if($beforeRun)
-            $beforeRun($this);
+    public function __construct(string $uri, RequestMapperConfig $config = null) {
+        if($config === null && self::$global_config === null)
+            $this->config = RequestMapperConfig::createDefaultConfig(); // this will fix the config to the global config at the point the request mapper instance is created. This means changing the global config afterward the RequestMapper instantiation will not affect the RequestMapper instance
+        elseif($config !== null)
+            $this->setConfig($config);
+
+        if(self::$DETERMINE_INSTANCED_BY)
+            $this->setInstancedBy(debug_backtrace()[1]['class']);
+
         $this->run($uri);
     }
 
@@ -45,6 +53,7 @@ class RequestMapper {
     }
 
     public function setConfig(RequestMapperConfig $config) : self {
+        $config->setRequestMapper($this);
         $this->config = $config;
         $this->run($this->getUri());
         return $this;
@@ -54,9 +63,7 @@ class RequestMapper {
      * @return RequestMapperConfig local config or fall back to the global config if a local config is not set
      */
     public function getConfig () : RequestMapperConfig|null {
-        $config = $this->config ?? self::$global_config ?? RequestMapperConfig::createDefaultConfig();
-        $config->setRequestMapper($this);
-        return $config;
+        return $this->config ?? self::$global_config;
     }
 
     public function update($uri = null) : void {
@@ -65,7 +72,12 @@ class RequestMapper {
 
     private function run (string $uri) : void { // called by the constructor and the update() method
 
+        $this->CACHE = [];
+        $this->is_detail_page_request = false;
+        $this->detail_page_query = null;
+
         $uri_without_query = strtok($uri, '?');
+
         if(empty($uri_without_query))
             $uri_without_query = '/';
         $this->original_request_path = $uri_without_query;
@@ -73,27 +85,37 @@ class RequestMapper {
 
         $this->uri = $uri = self::cleanUri($uri_without_query); // the exact request path (cleaned and with leading '/')
 
+        foreach($this->getCombineBasePaths() as /* @var $url string */ $url => /* @var $config BasePathConfig */ $config) // TODO the request mapper class has this loop 3 times... at least this and applyBasePathStrip could be combined...
+            $config->setRequestBase($url);
+
         $dest_file = ($this->isUriEmpty() ? $this->getDefaultPage() : $uri); // dest file without extension ; dest file may be not existing (checks following later)
 
-        $this->applyBasePathStrip($dest_file);
+        $this->applyBasePathStrip($dest_file); // TODO now that we have the keys of the base path we could perhaps spare out the foreach loop @ applyBasePathStrip ; like so:
+        // => $this->getCombineBasePaths()[$this->findBasePathConfig()->getRequestBase()] ... hier dann weitere logik aus applyBasePathStrip zum ersetzen
 
-        $page_base = $this->getBasePathConfig()->getBasePath();
+        if($this->getConfig()->isDynamicDetailPageEnabled() && str_contains($uri, $dpi = ('/' . $this->getDetailPageIdentifier() . '/'))) {
+            $this->is_detail_page_request = true;
+            $this->detail_page_query = substr($uri, strpos($uri, $dpi) + strlen($dpi));
+        }
+
+        $page_base = $this->findBasePathConfig()->getBasePath();
 
         $filePath = $this->filePath($dest_file, $page_base);
 
-        /** @var $page IPage */
+        /** @var $page IPage instance of a class that implements IPage */
 
         if($this->isDetailPageRequest()) {
-            $page = new DetailPage($this, $filePath);
-            $this->page_file_exists = true; 
+            $this->page_file_exists = true;
+            $page = new DetailPage($this, $filePath, $this->detail_page_query);
         }
         elseif($filePath && is_file($filePath)) { // simple existing page
             $this->page_file_exists = true;
             $page = new Page($this, $filePath);
         }
-        else { // page not found
+        // TODO man kann detailseiten aufrufen ohne die query dahinter - denke das sollte unterbunden werden weil die detailseiten ja eig immer von einer query / params abhängen
+        else { // page not found / 404
             $this->page_file_exists = false;
-            $page = $this->getBasePathConfig()->getFourOFourPage();
+            $page = new ($this->findBasePathConfig()->get404PageClass())($this);
         }
 
         $this->page = $page;
@@ -109,31 +131,32 @@ class RequestMapper {
      */
     public function getRedirectUri(string $prefix = '') : string|bool|null { // old name: getRedirectPath
 
+        $uri = $this->uri;
+
+        if(str_ends_with($uri, 'index.php'))
+            return '/';
+
         if(!$this->pageFileExists() && !$this->isDetailPageRequest()) // because if the page file does not exist we are setting up the 404 page and the 404 page does not require a redirect in any form
             return null;
 
-        $uri = $this->uri;
-
         $redirect_path = null;
 
-        $route_map = array_merge([
-            'index.php' => '/',
-        ], $this->getConfig()->getRouteMap());
+        $route_map = $this->getConfig()->getRouteMap();
         if(in_array($uri, array_keys($route_map))) {
             $redirect_path = $route_map[$uri];
         }
-        elseif($this->getDefaultPage() ===  $uri) { // redirect the default page (for example '/home') to '/'
-            $redirect_path = '/';
+        elseif($this->isDefaultPageRequest()) { // redirect the default page (for example '/home') to '/'
+            $redirect_path = $this->getRequestBase();
         }
         elseif($this->isRequestDoubleBase()) {
             $redirect_path = rtrim(substr(
-                $this->uri,
+                $uri,
                 0,
-                strrpos($this->uri, basename($this->uri))
+                strrpos($uri, basename($uri))
             ), '/');
         }
-        elseif($this->original_request_path !== $this->uri) { // $this->uri is already a clean uri version (without tailing and possible double middle slashed) - so if the original request differs from this clean version we need a redirect
-            $redirect_path = $this->uri;
+        elseif($this->original_request_path !== $uri) { // $this->uri is already a clean uri version (without tailing and possible double middle slashed) - so if the original request differs from this clean version we need a redirect
+            $redirect_path = $uri;
         }
 
         if($redirect_path !== null)
@@ -155,15 +178,19 @@ class RequestMapper {
      */
     private function isRequestDoubleBase() : bool { // I cannot think of a better name for this method
         $pn = pathinfo($this->uri);
-        return basename($pn['dirname']) === $pn['basename'] && $this->uri !== '/';
+        return basename($pn['dirname']) === $pn['basename'] && !$this->isUriEmpty();
+    }
+
+    public function isDefaultPageRequest () : bool {
+        $requestBaselessUri = str_replace($this->getRequestBase(), '', $this->uri);
+        return $requestBaselessUri === $this->getDefaultPage() || $this->uri === $this->getDefaultPage();
     }
 
     /**
      * Returns true/false whether the current request is a detail page request or not or null if the dynamic detail page feature is disabled
      */
     public function isDetailPageRequest () : bool|null {
-        $dynamic_detail_page_enabled = $this->getConfig()->isDynamicDetailPageEnabled();
-        return $dynamic_detail_page_enabled ? (str_contains($this->getUri(), '/detail/')) : null;
+        return $this->is_detail_page_request;
     }
 
     public function getPage () : null|IPage|DetailPage {
@@ -172,7 +199,9 @@ class RequestMapper {
 
     public function overridePage (IPage $page) : void {
         $this->page = $page;
-        $this->run($page->getUri());
+        $pageUri = $page->getRequestMapper()->getUri();
+        if($pageUri !== $this->uri)
+            $this->run($pageUri);
     }
 
     public function getUri () : ?string {
@@ -183,20 +212,37 @@ class RequestMapper {
         return $this->page_file_exists;
     }
 
-    /*
-     * - getDefaultPage
-     * - getFileExtension
-     * => find the correct property... ..... shoul be documented right - but don't even know how to describe this
-     */
     public function getDefaultPage () : ?string {
-        return $this->getBasePathConfig()->getDefaultPage() ?? $this->getConfig()->getDefaultDefaultPage();
+        if(isset($this->CACHE['defaultPage']))
+            return $this->CACHE['defaultPage'];
+        return $this->CACHE['defaultPage'] = $this->findBasePathConfig()->getDefaultPage() ?? $this->getConfig()->getDefaultDefaultPage();
     }
     public function getFileExtension () : ?string {
-        return $this->getBasePathConfig()->getPageFileExtension() ?? $this->getConfig()->getDefaultPageFileExtension();
+        if(isset($this->CACHE['fileExtension']))
+            return $this->CACHE['fileExtension'];
+        return $this->CACHE['fileExtension'] = $this->findBasePathConfig()->getPageFileExtension() ?? $this->getConfig()->getDefaultPageFileExtension();
+    }
+    /**
+     * @return string|null the base/root path where the page files are located
+     */
+    public function getBasePath () : ?string {
+        if(isset($this->CACHE['basePath']))
+            return $this->CACHE['basePath'];
+        return $this->CACHE['basePath'] = $this->findBasePathConfig()->getBasePath();
+    }
+    public function getDetailPageIdentifier () : ?string {
+        if(isset($this->CACHE['detailPageIdentifier']))
+            return $this->CACHE['detailPageIdentifier'];
+        return $this->CACHE['detailPageIdentifier'] = $this->findBasePathConfig()->getDetailPageIdentifier() ?? $this->getConfig()->getDefaultDetailPageIdentifier();
+    }
+    public function getRequestBase () {
+        if(isset($this->CACHE['requestBase']))
+            return $this->CACHE['requestBase'];
+        return $this->CACHE['requestBase'] = $this->findBasePathConfig()->getRequestBase();
     }
 
     public function isUriEmpty() : bool {
-        return $this->uri === '/';
+        return $this->uri === $this->findBasePathConfig()->getRequestBase();
     }
 
     public static function isReal404() {
@@ -221,9 +267,9 @@ class RequestMapper {
     }
 
     private function filePath($uri = null, $base = null) {
-        $uri = $uri ?? $this->uri; 
+        $uri = $uri ?? $this->uri;
         /* @var $base string */
-        $base = $base ?? /* BasePathConfig obj > */$this->getBasePathConfig();
+        $base = $base ?? /* @see BasePathConfig obj > */$this->findBasePathConfig()->getBasePath();
         $extension = $this->getFileExtension();
         if (is_file($f = sprintf('%s%s%s', $base, $uri, $extension))) {
             /*
@@ -235,12 +281,8 @@ class RequestMapper {
             $file = $f;
         }
         elseif($this->isDetailPageRequest()) {
-            $page_and_query = [];
-            preg_match('/^(?<page_file>.*\/detail)\/(?<query>.*)$/', $this->uri, $page_and_query);
-            $page_base = $this->getBasePathConfig()->getBasePath();
-            if($this->getConfig()->doesDynamicDetailPageQueryOverrideGet())
-                $_GET['query'] = $page_and_query['query'];
-            return $this->filePath($page_and_query['page_file'], $page_base);
+            $page_file = substr($uri, 0, strpos($uri, $this->detail_page_query));
+            $file = sprintf('%s%s%s', $base, rtrim($page_file, '/'), $extension);
         }
         elseif($f = sprintf('%s%s/%s%s', $base, $uri, basename($uri), $extension)) {
             /*
@@ -264,19 +306,15 @@ class RequestMapper {
     public static function registerGlobalBasePath($path, BasePathConfig $config) {
         self::$globalBasePaths[$path] = $config;
     }
-    
-    /*
-     * both combine basepaths into a local variable and the return this generated var
-     */
-    protected $basePathsCombined = null;
+
     private function getCombineBasePaths () : array {
-        /* @var $this->config RequestMapperConfig */
-        $this->basePathsCombined = array_merge(
+        if(isset($this->CACHE['basePathsCombined']))
+            return $this->CACHE['basePathsCombined'];
+        return $this->CACHE['basePathsCombined'] = array_merge(
             $this->getConfig()->getFurtherBasePaths(), // array of BasePathConfig
             self::$globalBasePaths,
             ['/' => $this->getConfig()->getDefaultBasePathConfig()] // << the main BasePathConfig instance passed to the RequestMapperConfig as the first param
         );
-        return $this->basePathsCombined;
     }
 
     /**
@@ -285,16 +323,16 @@ class RequestMapper {
      *
      * This method is automatically called by the RequestMapper class with the run & update method
      *
-     * @param $destFile
-     * @return void
+     * @param string &$destFile the path ref to the file the stripping should be applied to - note that this method will modify the passed string
      */
-    public function applyBasePathStrip(&$destFile) : void {
+    private function applyBasePathStrip(string &$destFile) : void {
         foreach($this->getCombineBasePaths() as /* @var $url string */ $url => /* @var $config BasePathConfig */ $config) {
             $url = ltrim($url, '/'); 
             if(str_contains($this->uri, $url)) {
                 if($config->getStrip() === BasePathConfig::STRIP_REQUEST_BASE) {
                     $destFile = str_replace(
-                        ($config->getStrip() === BasePathConfig::STRIP_REQUEST_BASE) ? $url : $config->getStrip(),
+                        //($config->getStrip() === BasePathConfig::STRIP_REQUEST_BASE) ? $url : $config->getStrip(),
+                        $url,
                         '',
                         $destFile
                     );
@@ -307,20 +345,18 @@ class RequestMapper {
      * Find the correct BasePath config while considering the default base path and all further registered base paths
      * @return BasePathConfig|null
      */
-    private ?BasePathConfig $basePathConfig = null;
-    public function getBasePathConfig () : BasePathConfig|null {
+    public function findBasePathConfig () : BasePathConfig|null {
+        if(isset($this->CACHE['basePathConfig']))
+            return $this->CACHE['basePathConfig'];
         foreach($this->getCombineBasePaths() as /* @var $url string */ $url => $config /* @var $config BasePathConfig */) {
             $url = ltrim($url, '/');
             if(str_contains($this->uri, $url)) {
-                $this->basePathConfig = $config; // cache found config
+                $this->CACHE['basePathConfig'] = $config;
                 return $config;
             }
 
         }
-
-        $config = $this->getConfig(); /* @var $config RequestMapperConfig */
-        $this->basePathConfig = $config->getDefaultBasePathConfig(); // cache config
-        return $this->basePathConfig;
+        return null;
     }
 
     /*

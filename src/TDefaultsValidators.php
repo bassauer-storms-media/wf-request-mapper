@@ -11,16 +11,20 @@ trait TDefaultsValidators {
         if($extension)
             return  '/' . trim(ltrim(str_replace($extension, '', $page), '/'));
         else
-            throw new Exception('when passing a default page you must also pass a default page file extension');
+            throw new \Exception('when passing a default page you must also pass a default page file extension');
     }
 
     /**
      * Make sure the extension always starts with ONE dot - no matter if the source string had one or not
-     * @param string $defaultPageFileExtension
+     * @param string $extension
      * @return string
      */
-    private static function getUnifiedExtension(string $defaultPageFileExtension) : string {
-        return '.' . trim(ltrim($defaultPageFileExtension, '.'));
+    private static function getUnifiedExtension(string $extension) : string {
+        return '.' . trim(ltrim($extension, '.'));
+    }
+
+    private static function getUnifiedDetailPageIdentifier(string $dpi) : string {
+        return trim($dpi, '/');
     }
 
 }

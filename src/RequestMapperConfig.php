@@ -11,10 +11,10 @@ class RequestMapperConfig {
     private array $furtherBasePaths = []; // local base paths
     private ?BasePathConfig $defaultBasePathConfig = null;
 
-    public string $defaultDefaultPage = 'home'; // nope, this ain't a typo. It is the default page if the BasePathConfig does not have a default page defined - so this is the default defaultPage fallback
-    public string $defaultPageFileExtension = '.php'; 
+    private string $defaultDefaultPage = '/home'; // nope, this ain't a typo. It is the default page if the BasePathConfig does not have a default page defined - so this is the default defaultPage fallback
+    private string $defaultPageFileExtension = '.php';
 
-    private ?RequestMapperMultiLanguageConfig $mlConfig = null;
+    public string $defaultDetailPageIdentifier = 'detail';
 
     private ?array $routeMap = [];
 
@@ -23,12 +23,16 @@ class RequestMapperConfig {
         
         ?array /** of @see BasePathConfig */ $furtherBasePaths = null,
 
-        // BasePathConfig can also have the following attribs defined - if so this here is a fallback
+        // BasePathConfig can also have the following attribs defined - if so, these here are treated as fallback
         ?string $defaultDefaultPage = null,
-        ?string $defaultPageFileExtension = null
+        ?string $defaultPageFileExtension = null,
+        ?string $defaultDetailPageIdentifier = null
     ) {
         
-        $this->defaultBasePathConfig = $defaultBasePathConfig; /* @var $defaultBasePathConfig BasePathConfig */
+        $this->defaultBasePathConfig = $defaultBasePathConfig; /* @see BasePathConfig */
+
+        if(!empty($furtherBasePaths) && array_sum(array_keys($furtherBasePaths)) !== 0) // make sure the keys are strings
+            throw new \Exception('All further basepaths must be indexed by a string which defines the url identifier for the basepath');
 
         foreach ((array)$furtherBasePaths + [$defaultBasePathConfig] as $basePath)
             $basePath->setRequestMapperConfig($this);
@@ -39,6 +43,8 @@ class RequestMapperConfig {
             $this->setDefaultPageFileExtension($defaultPageFileExtension); // its important this is set before the defaultDefaultPage is set
         if($defaultDefaultPage !== null)
             $this->setDefaultDefaultPage($defaultDefaultPage);
+        if($defaultDetailPageIdentifier !== null)
+            $this->setDefaultDetailPageIdentifier($defaultDetailPageIdentifier);
     }
 
     /**
@@ -76,7 +82,6 @@ class RequestMapperConfig {
     }
 
     private bool $enable_dynamic_detail_page = true;
-    private bool $dynamic_detail_page_query_override_get = true;
 
     /**
      * @return bool
@@ -90,20 +95,6 @@ class RequestMapperConfig {
      */
     public function setDynamicDetailPageEnabled(bool $enable_dynamic_detail_page) : void {
         $this->enable_dynamic_detail_page = $enable_dynamic_detail_page;
-    }
-
-    /**
-     * @return bool
-     */
-    public function doesDynamicDetailPageQueryOverrideGet() : bool {
-        return $this->dynamic_detail_page_query_override_get;
-    }
-
-    /**
-     * @param bool $dynamic_detail_page_override_get
-     */
-    public function setDynamicDetailPageQueryOverrideGet(bool $dynamic_detail_page_override_get) : void {
-        $this->dynamic_detail_page_query_override_get = $dynamic_detail_page_override_get;
     }
 
     /**
@@ -132,6 +123,14 @@ class RequestMapperConfig {
      */
     public function /*ain't a typo!*/ setDefaultDefaultPage(?string $defaultPage) : void {
         $this->defaultDefaultPage = $this->getValidateDefaultPage($defaultPage, $this->defaultPageFileExtension);
+    }
+
+    public function getDefaultDetailPageIdentifier() : string {
+        return $this->defaultDetailPageIdentifier;
+    }
+
+    public function setDefaultDetailPageIdentifier(string $identifier) : void {
+        $this->defaultDetailPageIdentifier = self::getUnifiedDetailPageIdentifier($identifier);
     }
 
     /**
