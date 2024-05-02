@@ -30,7 +30,7 @@ I primarily wrote this for using it within a framework for more or less static w
 
 _the all known 'wordpress' rewrite rule which rewrites all requests to things that do not physically exist to index.php:_
 
-```
+```apache
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
@@ -62,7 +62,7 @@ pages
 
 **index.php:**
 
-```
+```php
 use serjoscha87\phpRequestMapper\CurrentRequest;
 use serjoscha87\phpRequestMapper\CurrentPage;
 
@@ -87,6 +87,16 @@ if(CurrentRequest::needsRedirect()) {
 
 if(!CurrentRequest::isReal404())
     require_once $currentPage->getFilePath(); // this will automatically send out the content of the 404 page if the page requested and mapped does not exist - otherwise it will deliver the content of the files the mapper mapped
+    
+```
+
+**Major alternative which does all the checking & redirecting stuff for you:**
+```php
+CurrentRequest::handle(function(IPage $page) {
+    require_once $page->getFilePath();
+    // or for example if your are using some cool lib like BladeOne (and assuming you configured it) 
+    // echo $blade->run($page->getFilePath());
+});
 ```
 
 ### Examples for better understanding what the request mapper does for you
@@ -100,21 +110,70 @@ considering the filesys structure given above (see "Simple usage Example"):
   - Request to: ``/foobar/foobar`` -> the requestmapper will tell you that a redirect to ``/foobar`` is required (see above)
   - Request to: ``/foobar`` -> will deliver the content of ``pages/foobar/foobar.php``
   - Request to: ``/foobar/detail/something`` -> will deliver the content of ``pages/foobar/detail.php`` and will pass everything after ``/detail`` to the php file
-  - Request to: ``/foobar/abc`` -> like seen before ... nothing special. Will deliver the content ``pages/foobar/abc``
+  - Request to: ``/foobar/abc`` -> like seen before ... nothing special. Will deliver the content ``pages/foobar/abc.php``
 
 ### self instancing:
 
-```
-$rm = new RequestMapper('/my-emulation-url');
-```
+(creating an instance to use your self rather than using the factory classes CurrentRequest / CurrentPage)
 
-... up to come
+```php
+$rm = new RequestMapper('/my-emulation-url', /*<*/CONFIG/*> (optional when a global config exists)*/);
+```
 
 ## configuration
 
-up to come...
+```php
+RequestMapper::setGlobalConfig(new RequestMapperConfig(
+    new BasePathConfig(
+        'pages',
+        defaultPage: '/home',
+        pageFileExtension: 'php'
+        // pageClass: MyCustomPage::class // < of course this class must exist (and should implement IPage) 
+        // detailPageIdentifier: 'item'
+    ),
+    //defaultDetailPageIdentifier: 'detail'
+    //defaultDefaultPage : 'test',
+    //defaultPageFileExtension : 'php'
+    [
+        '/admin' => new BasePathConfig('admin-pages', BasePathConfig::STRIP_REQUEST_BASE, 'dashboard', 'php'),
+    ]
+));
+```
 
-but generally pages base-dir, file-extensions, route-prefixes and base-paths are configurable
+of course you can also pass a config directly to the constructor of the actual RequestMapper class which will override the global config for this instance:
+
+```php
+$myCustomRequestMapper = new RequestMapper('/my-emulation-url', new RequestMapperConfig(
+    new BasePathConfig(/*...*/)
+));
+```
+
+### Defaults and fallbacks
+
+Those default properties can be passed to the **RequestMapperConfig** constructor:
+
+```php
+?string $defaultDefaultPage = null
+?string $defaultPageFileExtension = null
+?string $defaultDetailPageIdentifier = null
+```
+
+those are used if a concrete BasePathConfig instance does not provide a value for them.
+
+Each BasePathConfig can have its own values for those properties.
+Furthermore the following properties can be passed to the constructor of the **BasePathConfig** class:
+
+```php
+string $basePath, // < filesystem path - typically 'pages'. This is the dir where your page files are located
+null|string|int/*<BasePathConfig::STRIP_REQUEST_BASE>*/ $strip = null,
+/*O*/?string $defaultPage = null, // the default page to be delivered if the request is just a root request - typically this will be 'home' (which will be reflected to 'home.php' in the pages dir)
+/*O*/?string $pageFileExtension = null, // if set: overrides the default page file extension set to the RequestMapperConfig
+?string $pageClass = null, // the full qualified class name of the class that represents a found page - should implement IPage
+?string $fourOFourPageClass = null, // same as above but for 404 pages
+?string $detailPageClass = null, // same as above but for detail pages
+/*O*/?string $detailPageIdentifier = null // the name of the files that will be used as detail pages - typically 'detail' (which will be reflected to 'detail.php' in the dir the request is mapped to)
+```
+where ```/*O*/``` indicates that the value overrides RequestMapperConfig props if set
 
 ## RequestMapper::isReal404()
 

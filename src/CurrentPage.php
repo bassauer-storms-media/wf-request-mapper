@@ -24,22 +24,23 @@ class CurrentPage {
         return self::get()->$name(...$arguments);
     }
 
-    public static function get(RequestMapperConfig $config = null) : IPage|DetailPage {
+    public static function get(/*?array $mappings = null*/) : IPage {
         /* @var $mapper RequestMapper */
-        $mapper = (new CurrentRequest)->mapper();
-        if($config)
-            $mapper->setConfig($config);
+        //$mapper = (new CurrentRequest)->mapper();
+        $mapper = CurrentRequest::inst()->mapper();
+        /*if($mappings)
+            $mapper->setM($config);*/
         return $mapper->getPage();
     }
 
-    public static function override(IPage $page) : void {
+    /*public static function override(IPage $page) : void {
         CurrentRequest::inst()->mapper()->overridePage($page);
-    }
+    }*/
 
     public static function getRequestMapper () : RequestMapper {
         return CurrentRequest::inst()->mapper();
     }
-    public static function mapper() : RequestMapper {
+    public static function mapper() : RequestMapper { // alias
         return self::getRequestMapper();
     }
 

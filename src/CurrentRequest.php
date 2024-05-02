@@ -6,43 +6,39 @@ class CurrentRequest {
 
     protected static ?CurrentRequest $instance = null;
 
-    public static function inst() : ?CurrentRequest {
-        if(!self::$instance)
+    public static function inst() : CurrentRequest {
+        if(self::$instance === null)
             self::$instance = new self();
         return self::$instance;
     }
 
-    private ?RequestMapper $request_mapper = null;
-
-    public function __construct() {
-        $this->request_mapper = new RequestMapper($_SERVER['REQUEST_URI']);
-    }
-
-    public function override(RequestMapper $request_mapper) : void {
-        $this->request_mapper = $request_mapper;
-    }
-
-    public function overridePage(IPage $page) : void {
-        $this->request_mapper->overridePage($page);
-    }
+    private RequestMapper $request_mapper;
 
     /**
-     * @return RequestMapper|null
+     * @throws \Exception
      */
+    public function __construct() {
+        $this->request_mapper = new RequestMapper(/*use global mapping config when run*/);
+        $this->request_mapper->run();
+    }
+
+    public function override(RequestMapper $request_mapper) : self {
+        $this->request_mapper = $request_mapper;
+        return $this;
+    }
+
+    /*public function overridePage(IPage $page) : void {
+        $this->request_mapper->overridePage($page);
+    }*/
+
     public function getRequestMapper() : RequestMapper {
         return $this->request_mapper;
     }
-
     /**
      * alias for @see getRequestMapper()
-     * @return RequestMapper|null
      */
     public function mapper() : RequestMapper {
         return $this->request_mapper;
-    }
-
-    public function getConfig () : RequestMapperConfig {
-        return $this->request_mapper->getConfig();
     }
 
     public static function isAjax() {
@@ -55,25 +51,22 @@ class CurrentRequest {
         );
     }
 
-    /*
-     * redirects the request if needed - otherwise calls your closure to deliver the content
-     */
     public static function handle(\Closure $fn) : mixed {
-        if(!RequestMapper::isReal404()) {
-            $rm = self::inst()->mapper();
-            if($rm->needsRedirect()) {
-                header('HTTP/1.0 404 Not Found');
-                header('Location: ' . $rm->getRedirectUri());
-                exit;
-            } else {
-                return $fn($rm->getPage());
-            }
-        }
-        return null;
+        return self::inst()->request_mapper->handle($fn);
+    }
+
+    /*
+     * If the current request is answered by a detail page, this method returns the part of the request uri after the detail identifier
+     */
+    public static function getDetailPageQuery () : string|false {
+        if(!method_exists(self::getPage(), 'getQuery'))
+            return false;
+        return self::getPage()->getQuery();
     }
 
     /*
      * PROXY METHODS
+     * TODO use __callStatic
      */
     public static function getPage() : IPage {
         return self::inst()->mapper()->getPage();
@@ -97,13 +90,6 @@ class CurrentRequest {
 
     public function resultsIn404() : bool {
         return !self::inst()->mapper()->pageFileExists();
-    }
-
-    /*
-     * If the current request is answered by a detail page, this method returns the part of the request uri after the detail identifier
-     */
-    public static function getDetailPageQuery () : ?string {
-        return self::inst()->mapper()->getPage()->getQuery();
     }
 
 }

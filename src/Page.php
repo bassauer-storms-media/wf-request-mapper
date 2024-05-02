@@ -23,7 +23,7 @@ class Page extends PageBase implements IPage {
      * @return string|null filename without extension and path (if the path is available)
      */
     public function getName() : string|null {
-        return $this->filePath ? basename($this->filePath, $this->request_mapper->getFileExtension()) : null;
+        return $this->filePath ? basename($this->filePath, $this->request_mapper->getPageFileExtension()) : null;
     }
 
     /**

@@ -8,6 +8,8 @@ namespace serjoscha87\phpRequestMapper;
 
 class Default404Page extends PageBase implements IPage {
 
+    public static string $fileName = '404'; // without extension / path
+
     /**
      * @throws \Exception
      */
@@ -19,11 +21,11 @@ class Default404Page extends PageBase implements IPage {
     }
 
     public function __toString() : string {
-        return '404';
+        return self::$fileName;
     }
 
     public function getName() : string {
-        return '404';
+        return self::$fileName;
     }
 
     /**
@@ -31,7 +33,7 @@ class Default404Page extends PageBase implements IPage {
      */
     public function getFilePath () : string {
         $rm = $this->getRequestMapper();
-        return sprintf('%s/404%s', $rm->getBasePath(), $rm->getFileExtension());
+        return sprintf('%s/%s%s', $rm->getPageBasePath(), self::$fileName, $rm->getPageFileExtension());
     }
 
 }
