@@ -3,11 +3,12 @@
 namespace serjoscha87\phpRequestMapper;
 
 /*
- * global class that allows access to the current page request
+ * global class that allows access to the current page instance
+ * NOTE THAT THIS WILL ALWAYS REFERENCE THE PRIMARY REQUESTMAPPER INSTANCE
  */
 
 /**
- * Methods delegated through the 'magic method' __callStatic
+ * Methods delegated through the 'magic method' __callStatic @see Page, PageBase
  * @method static getName() : string|null
  * @method static getFilePath () : string|null;
  * @method static getBasePath () : string|null;
@@ -24,24 +25,19 @@ class CurrentPage {
         return self::get()->$name(...$arguments);
     }
 
-    public static function get(/*?array $mappings = null*/) : IPage {
-        /* @var $mapper RequestMapper */
-        //$mapper = (new CurrentRequest)->mapper();
-        $mapper = CurrentRequest::inst()->mapper();
-        /*if($mappings)
-            $mapper->setM($config);*/
-        return $mapper->getPage();
+    private static function perhapsRaiseNoInstanceException() {
+        if(!RequestMapper::$primaryInstance)
+            throw new \Exception('No RequestMapper instance available. Make sure to instance a RequestMapper first.');
     }
 
-    /*public static function override(IPage $page) : void {
-        CurrentRequest::inst()->mapper()->overridePage($page);
-    }*/
+    public static function get() : IPage {
+        self::perhapsRaiseNoInstanceException();
+        return RequestMapper::$primaryInstance->getPage();
+    }
 
     public static function getRequestMapper () : RequestMapper {
-        return CurrentRequest::inst()->mapper();
-    }
-    public static function mapper() : RequestMapper { // alias
-        return self::getRequestMapper();
+        self::perhapsRaiseNoInstanceException();
+        return RequestMapper::$primaryInstance;
     }
 
 }

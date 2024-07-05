@@ -24,6 +24,8 @@ class Mapping {
 
     protected null|string|int $strip                = null; // TODO better name
 
+    protected ?int $priority                        = null; // todo das dann via spl priority queue im requestmapper haupt loop berücksichtigen
+
     protected ?SolidUri $requestBase                = null;
     protected ?\Closure $customRequestBaseCheck     = null;
     private string $matchingMode;
@@ -31,6 +33,8 @@ class Mapping {
     const MATCHING_MODE_CUSTOM_CALLBACK             = 'custom_callback';
 
     protected ?\Closure $onMatchCallback           = null;
+    protected ?\Closure $onTapCallback             = null;
+    protected ?\Closure $onPageInstantiationCompleteCallback = null;
 
     protected array $routeMap                       = [];
 
@@ -54,12 +58,14 @@ class Mapping {
     public static function createDefault() : IDefaultMapping {
         return (new class('/') extends Mapping implements IDefaultMapping {
             protected ?bool $isDefaultMapping = true;
+            protected ?int $priority = -1;
 
             // note: setRequestBase is not allowed for default mapping because it would make no sense
         });
     }
 
     /**
+     * @see RequestMapper::requestMatches() for parameters passed to the closure passed to this method
      * @return self
      */
     public static function createFor(string|\Closure $requestBase_or_customCheck) : IConcreteMapping|IDefaultMapping {
@@ -75,6 +81,11 @@ class Mapping {
             public function setRequestBase(string|SolidUri $requestBase) : void {
                 $this->requestBase = is_string($requestBase) ? new SolidUri($requestBase) : $requestBase;
                 $this->matchingMode = self::MATCHING_MODE_REQUEST_BASE;
+            }
+
+            public function setPriority(?int $priority) : self {
+                $this->priority = $priority;
+                return $this;
             }
         };
     }
@@ -93,12 +104,6 @@ class Mapping {
     public function isDefaultMapping () : bool {
         return $this->isDefaultMapping; // < inherited from the dynamically created class
     }
-
-    /*public function matches(SolidUri $solidUri, bool $exact = false) : bool {
-        if($this->customRequestBaseCheck)
-            return ($this->customRequestBaseCheck)($solidUri);
-        return $exact ? $solidUri->getUri() === $this->getSolidRequestBase() : str_starts_with($solidUri->getUri(), $this->getSolidRequestBase());
-    }*/
 
     /**
      * sets the default page path while making sure it does not contain the configured page file extension and is a solid uri
@@ -228,12 +233,38 @@ class Mapping {
         return $this->routeMap;
     }
 
+    // set priority is only available for concrete mappings
+    public function getPriority() : ?int {
+        return $this->priority;
+    }
+
     public function onMatch(\Closure $onMatchCallback) : self {
         $this->onMatchCallback = $onMatchCallback;
         return $this;
     }
     public function getOnMatchCallback() : ?\Closure {
         return $this->onMatchCallback;
+    }
+
+    /**
+     * set a callback that is addressed when the route gets processed
+     * @param \Closure $onTapCallback
+     * @return $this
+     */
+    public function onTap(\Closure $onTapCallback) : self {
+        $this->onTapCallback = $onTapCallback;
+        return $this;
+    }
+    public function getOnTapCallback() : ?\Closure {
+        return $this->onTapCallback;
+    }
+
+    public function onPageInstantiationComplete(\Closure $onPageInstantiationCompleteCallback) : self {
+        $this->onPageInstantiationCompleteCallback = $onPageInstantiationCompleteCallback;
+        return $this;
+    }
+    public function getOnPageInstantiationCompleteCallback() : ?\Closure {
+        return $this->onPageInstantiationCompleteCallback;
     }
 
     public function getRequestMapper() : RequestMapper {

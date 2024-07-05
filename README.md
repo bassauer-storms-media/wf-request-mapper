@@ -63,8 +63,7 @@ pages
 **index.php:**
 
 ```php
-use serjoscha87\phpRequestMapper\CurrentRequest;
-use serjoscha87\phpRequestMapper\CurrentPage;
+use serjoscha87\phpRequestMapper\_\CurrentRequest;use serjoscha87\phpRequestMapper\CurrentPage;
 
 // if you need the mapper instance for the current request
 // $rm = CurrentRequest::inst()->mapper(); 

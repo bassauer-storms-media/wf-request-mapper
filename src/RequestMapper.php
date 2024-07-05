@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+/*
+ * aktuell noch todo:
+ * prios fertig bauen
+ * appendMapping etc implementieren
+ */
+
 namespace serjoscha87\phpRequestMapper;
 
 /**
@@ -35,12 +41,14 @@ class RequestMapper {
 
     // TODO unify variable naming -> .._.. vs no .._..
 
+    private bool $ran = false; // state var to determine whether the run method was called yet or not
+
     private SolidUri $solidUri;
 
     private ?Mapping $currentMapping = null;
+    private ?Mapping $defaultMapping = null;
 
     private ?array $mappings;
-    public static array $global_mappings = [];
 
     private ?bool $page_file_exists = null;
 
@@ -48,8 +56,16 @@ class RequestMapper {
 
     private ?IPage $page = null;
 
+    // TODO das $DETERMINE_INSTANCED_BY kann eigentlich raus... braucht keine sau und funktioniert gerade nicht mehr richtig - war ursprünglich um rauszufinden ob die istantz durch currentRequest instanziiert wurde ...
     public static $DETERMINE_INSTANCED_BY = false; // if true the instanced_by property will be set to the class name that instanced the RequestMapper instance
     private ?string $instanced_by = null; // can internally be used to store who instanced this class - if its null it can be considered user-code/implementation instanced
+
+    private array $callbacks = [];
+
+    private bool $respectPriorities = false;
+
+    public static ?RequestMapper $primaryInstance = null;
+    public static array/*<*RequestMapper>*/ $furtherInstances = [];
 
     /**
      * @param array<IDefaultMapping>|IDefaultMapping|null $mappings if null, the global config will be used, or if no global config is configured, a default config will be used
@@ -61,41 +77,82 @@ class RequestMapper {
             $mappings = [$mappings];
 
         if(self::$DETERMINE_INSTANCED_BY)
-            $this->instanced_by = debug_backtrace()[1]['class'];
+            d('>>>>>', debug_backtrace()); // $this->instanced_by = debug_backtrace()[0]['class'];
 
         $this->mappings = $mappings;
+
+        if(self::$primaryInstance === null)
+            self::$primaryInstance = &$this;
+
+        error_log('run? '.( $run? 'yes' : 'no'));
 
         if($run)
             $this->run();
 
+        //CurrentRequest::$requestMappers[] = &$this;
+
     }
 
     public function update(string $uri = null) : void {
+        if(isset($this->callbacks['beforeUpdate']))
+            ($this->callbacks['beforeUpdate'])($this);
+
+        $this->ran = false;
         $this->run($uri ?? $this->solidUri);
+
+        if(isset($this->callbacks['afterUpdate']))
+            ($this->callbacks['afterUpdate'])($this, $this->page);
     }
 
     public function requestMatches(Mapping &$mapping, bool $exact = false) {
         if($mapping->getMatchingMode() === Mapping::MATCHING_MODE_CUSTOM_CALLBACK)
-            return (\Closure::bind($mapping->getCustomRequestBaseCheck(), $mapping))($mapping, $this->solidUri);
+            return (\Closure::bind($mapping->getCustomRequestBaseCheck(), $mapping))($mapping, $this->solidUri, $this);
         return $exact ? $this->solidUri->getUri() === $mapping->getSolidRequestBase() : str_starts_with($this->solidUri->getUri(), $mapping->getSolidRequestBase());
     }
 
     public function run (string|SolidUri|null $uri = null) : void {
 
+        if(isset($this->callbacks['beforeRun'])) // todo this seems to be triggered twice ... why ?!
+            ($this->callbacks['beforeRun'])($this);
+
+        if($this->ran) // force more clean implementation of this class
+            throw new \Exception('The RequestMapper instance has already been run. You can use the >update< method to re-run the RequestMapper-logic.');
+
+        $this->ran = true;
+
         $uri ??= $_SERVER['REQUEST_URI'];
 
         $this->solidUri = $solidUri = $uri instanceof SolidUri ? $uri->getUri() : new SolidUri($uri);
 
-        if(empty($this->mappings) && empty(self::$global_mappings))
+        if(empty($this->mappings)) // && empty(self::$global_mappings))
             $mappings = [Mapping::createDefault()];
         else
-            $mappings = $this->mappings ?? self::$global_mappings;
+            $mappings = $this->mappings; // ?? self::$global_mappings;
 
         $defaultMappings = 0;
         $defaultMapping = null; // (this can always be just a single one)
 
+        //$onMatch = null; // this is similar to the onMatch callback but is triggered earlier (before the page coordination logic) so it allows to manipulate passed objects as needed before execution of the page logic
+
+        if($this->respectPriorities) { // TODO in die README dokumentieren, dass priorities mit höherem wert eine höhere priorität haben
+            $mappingsByPriority = [];
+            $priorityOverlapsCount = []; // TODO
+            foreach ($mappings as $mapping) {
+                /* @var $mapping Mapping */
+                if($mapping->getPriority() === null)
+                    throw new \Exception('Mapping with requestBase >'.$mapping->getSolidRequestBase() .'< does not have a priority set. Please make sure to set a priority for every mapping when the RequestMapper is configured to respect priorities.');
+
+                $mappingsByPriority[$mapping->getPriority()] = $mapping;
+            }
+            krsort($mappingsByPriority);
+            $mappings = $mappingsByPriority;
+        }
+
         foreach ($mappings as $mapping) {
             /* @var $mapping Mapping */
+
+            if($mapping->getOnTapCallback() !== null)
+                ($mapping->getOnTapCallback())($this); // dereference the closure in your target callback method's signature ( ...->onTap(function(\Closure &$fn, RequestMapper $mapper) { ... }) to set the closure
 
             if($mapping->isDefaultMapping()) {
                 $defaultMappings++;
@@ -103,10 +160,12 @@ class RequestMapper {
                     throw new \Exception('Multiple default mappings found - please only pass one default mapping and use concrete mappings for the rest of the mappings. You can do so by using the createFor factory method instead of createDefault.');
 
                 $defaultMapping = $mapping;
+
+                $this->defaultMapping = &$defaultMapping;
                 continue; // skip default mapping for the check because they need to checked with a lower priority then the concrete mappings
             }
 
-            if($this->requestMatches($mapping))
+            if($this->requestMatches($mapping)) // TODO es wäre ganz cool wenn hier irgendwie das onMatch callback berücksichtigt werden könnte damit man im on match false zurück geben kann damit dann doch geskippt wird
                 $this->currentMapping = $mapping;
 
             // break the loop after the default mapping and the first matching mapping is found
@@ -123,12 +182,18 @@ class RequestMapper {
 
         $this->currentMapping->setRequestMapper($this);
 
+        //if($onMatch !== null) // todo das hier dann auch weg - onMatch callback vom ende unten nach hier oben verschieben
+            //($onMatch)($this->currentMapping, $this);
+        if($this->currentMapping->getOnMatchCallback() !== null)
+            ($this->currentMapping->getOnMatchCallback())($this->currentMapping, $this);
+
+        //CurrentRequest::$currentMapping = $this->currentMapping;
+
         // Destination file without an extension. Note that the dest-file may be not existing (checks following later)
         $str_SolidDestFilePath = ($this->requestIsMappingRequestBase() ? (new SolidUri($this->getDefaultPagePath()))->getUri() : $solidUri->getUri());
 
         $this->applyRequestBaseStrip($str_SolidDestFilePath); // (method also ensures the url stays solid)
 
-        // TODO this is very fuzzy und will result in detail page request handling if the request just contains the detail page keyword
         $this->is_detail_page_request = $this->isDetailPageEnabled() && str_contains($str_SolidDestFilePath, ('/' . $this->getDetailPageIdentifier() . '/'));
 
         $str_PageBasePath = $this->getPageBasePath();
@@ -155,13 +220,17 @@ class RequestMapper {
             $obj_Page = new $str_404PageClass($this);
         }
 
-        if($this->currentMapping->getOnMatchCallback() !== null)
-            ($this->currentMapping->getOnMatchCallback())($obj_Page, $this->currentMapping, $this);
+        if($this->currentMapping->getOnPageInstantiationCompleteCallback() !== null)
+            ($this->currentMapping->getOnPageInstantiationCompleteCallback())($obj_Page, $this->currentMapping, $this);
 
         if(!$obj_Page instanceof IPage)
             throw new \Exception('Page class does not implement IPage: ' . get_class($obj_Page) . ' - ' . $str_FullQualifiedPageFilePath);
 
         $this->page = $obj_Page;
+
+        if(isset($this->callbacks['afterRun']))
+            ($this->callbacks['afterRun'])($this, $obj_Page);
+
     }
 
     public function needsRedirect() {
@@ -173,11 +242,6 @@ class RequestMapper {
      * @return string|false|null => string if we need a redirect; false if we don't need a redirect ; null if it does not matter because we will be running into a 404 what will never require a redirect
      */
     public function getRedirectUri(string $prefix = '') : string|bool|null {
-
-        /*
-         * TODO '/foobar/////bla?' fürt zu too many redirects
-         * genau wie /foobar/detail/test-test?test
-         */
 
         $str_SolidUri = $this->solidUri->getUri();
 
@@ -336,7 +400,7 @@ class RequestMapper {
      * the global mappings are available through ALL RequestMapper instances that may exist.
      * But the RequestMapper always prioritizes the local mappings before the global mappings.
      */
-    public static function setGlobalMappings(array/*<Mapping>*/ $mappings) {
+    /*public static function setGlobalMappings(array/ *<Mapping>* / $mappings) {
         self::$global_mappings = $mappings;
     }
     public static function getGlobalMappings() : array|null {
@@ -344,12 +408,17 @@ class RequestMapper {
     }
     public static function addGlobalMapping(Mapping $mapping) {
         self::$global_mappings[] = $mapping;
-    }
+    }*/
 
     public function addMapping (Mapping $mapping) : self {
         $this->mappings[] = $mapping;
         return $this;
     }
+
+    // todo:
+    // appendMapping, prependMapping
+    // getMappingByRequestBase
+    // usePriorityQueue -> dann erlauben das setPriority auf Mapping gesetz wird /// neuer name: respectPriorities
 
     /**
      * Removes the configured string (fixed string or dynamic request base) from the passed file path while keeping the file path solid (the path passed is considered extension-less)
@@ -380,6 +449,11 @@ class RequestMapper {
      * redirects the request if needed - otherwise calls the implementer's closure to deliver the content
      */
     public function handle(\Closure $fn) : mixed {
+        if(!$this->ran)
+            throw new \Exception('The RequestMapper run method has not yet been invoked. Make sure to call the run method before trying to handle the request.');
+
+        //self::$primaryInstance = &$this; // TODO da das hier das callback ist, das nur für die treffende instanz ausgeführt wird, sollte es im grunde funktionieren hier die primäre instanz zu setzen, allerdings ist die frage was dann mit den makePrimary methode und so ist... funktionieren die dann noch? brauchen wir die dann noch?
+
         if(!RequestMapper::isReal404()) {
             $rm = $this;
             if($rm->needsRedirect()) {
@@ -389,10 +463,34 @@ class RequestMapper {
             } else {
                 if($rm->getPage()->is404Page())
                     header('HTTP/1.0 404 Not Found');
-                return $fn($rm->getPage());
+                $page = $rm->getPage();
+                return \Closure::bind($fn, $page)($page); // bind the custom closure to the page instance so implementers can use $this in their closure to reference the page instance
             }
         }
         return null;
+    }
+
+    public function ran() : bool {
+        return $this->ran;
+    }
+
+    public function getCurrentMapping() : Mapping {
+        return $this->currentMapping;
+    }
+
+    public function getDefaultMapping () : Mapping {
+        return $this->defaultMapping;
+    }
+    public function overrideDefaultMapping (Mapping $mapping) : void {
+        $this->defaultMapping = $mapping;
+    }
+
+    public function setRespectPriorities(bool $respect) : self {
+        $this->respectPriorities = $respect;
+        return $this;
+    }
+    public function respectsPriorities() : bool {
+        return $this->respectPriorities;
     }
 
     /*
@@ -421,11 +519,56 @@ class RequestMapper {
             'setStrip',
             'getStrip',
             'getRouteMap',
-            'setRouteMap'
+            'setRouteMap',
         ])) {
             return $this->currentMapping->$methodName(...$arguments);
         }
         throw new \Exception('Method does not exist on current mapping instance or is not allowed for delegation: ' . $methodName);
+    }
+
+    public static function getCurrentPage() : IPage {
+        if(!self::$primaryInstance->ran())
+            trigger_error('The RequestMapper has not been run yet. Make sure to call the run method before trying to access the current page.', E_USER_WARNING);
+        return self::$primaryInstance->getPage();
+    }
+
+    public static function use(string $identifier) : RequestMapper {
+        return self::$furtherInstances[$identifier];
+    }
+
+    public function makePrimary() : self {
+        self::$primaryInstance = &$this;
+        return $this;
+    }
+
+    public function identifyAs(string $identifier) : self {
+        self::$furtherInstances[$identifier] = &$this;
+        return $this;
+    }
+
+    public static bool $RAISE_EXCEPTION_ON_POINTLESS_CALLBACK_BINDING = true; // while there may be cases where it makes sense to bind callbacks after the RequestMapper instance has been run, in most cases it is pointless and may indicate a mistake in the implementation
+
+    public function beforeRun(\Closure $fn) : self {
+        if(self::$RAISE_EXCEPTION_ON_POINTLESS_CALLBACK_BINDING && $this->ran)
+            throw new \Exception('Binding run callbacks is pointless if the RequestMapper instance has already been run');
+
+        $this->callbacks['beforeRun'] = $fn;
+        return $this;
+    }
+    public function afterRun(\Closure $fn) : self {
+        if(self::$RAISE_EXCEPTION_ON_POINTLESS_CALLBACK_BINDING && $this->ran)
+            throw new \Exception('Binding run callbacks is pointless if the RequestMapper instance has already been run');
+
+        $this->callbacks['afterRun'] = $fn;
+        return $this;
+    }
+    public function beforeUpdate(\Closure $fn) : self {
+        $this->callbacks['beforeUpdate'] = $fn;
+        return $this;
+    }
+    public function afterUpdate(\Closure $fn) : self {
+        $this->callbacks['afterUpdate'] = $fn;
+        return $this;
     }
 
     public function getInstancedBy() : string|null {

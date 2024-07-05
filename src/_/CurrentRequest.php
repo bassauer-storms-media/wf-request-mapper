@@ -1,44 +1,79 @@
 <?php
 
-namespace serjoscha87\phpRequestMapper;
+namespace serjoscha87\phpRequestMapper\_;
+
+use serjoscha87\phpRequestMapper\IPage;
+use serjoscha87\phpRequestMapper\RequestMapper;
+use function serjoscha87\phpRequestMapper\d;
 
 class CurrentRequest {
 
     protected static ?CurrentRequest $instance = null;
 
-    public static function inst() : CurrentRequest {
+    public static ?array $requestMappers = [];
+
+    //public static ?Mapping $currentMapping = null;
+
+    /*
+     * TODO es wäre gut wenn man irgendwie dafür sorgen könnte dass currentrequest die aktuell gematchte config verwendet
+     * man könnte in RequestMapper die currentMapping var statich machen theoretisch
+     */
+
+    /*private static function inst() : CurrentRequest {
         if(self::$instance === null)
             self::$instance = new self();
         return self::$instance;
-    }
+    }*/
 
-    private RequestMapper $request_mapper;
+    /*public static function use(RequestMapper $rm) {
+        return new class ($rm) extends CurrentRequest {
+            public function __construct(RequestMapper $rm) {
+                $this->request_mapper = $rm;
+            }
+        };
+    }*/
+
+    //private RequestMapper $request_mapper;
 
     /**
      * @throws \Exception
      */
-    public function __construct() {
-        $this->request_mapper = new RequestMapper(/*use global mapping config when run*/);
-        $this->request_mapper->run();
-    }
+    /*public function __construct() {
+        $this->request_mapper = new RequestMapper(/*use global mapping config when run* / run: true);
+    }*/
 
-    public function override(RequestMapper $request_mapper) : self {
+    /*public function override(RequestMapper $request_mapper) : self {
         $this->request_mapper = $request_mapper;
         return $this;
-    }
+    }*/
 
     /*public function overridePage(IPage $page) : void {
         $this->request_mapper->overridePage($page);
     }*/
 
     public function getRequestMapper() : RequestMapper {
-        return $this->request_mapper;
+        //return $this->request_mapper;
+        foreach(self::$requestMappers as $rm) {
+            /* @var $rm RequestMapper */
+            $rmCurrent = null;
+            if(!$rm->ran()) {
+                $rmCurrent = clone $rm;
+                $rm->run();
+            }
+            else
+                $rmCurrent = $rm;
+
+            // ab hier gehts nicht mehr weiter - wir werden hier an nichts da es beliebig viele default mappings geben kann
+
+            d($rmCurrent->getCurrentMapping());
+
+        }
     }
     /**
      * alias for @see getRequestMapper()
      */
     public function mapper() : RequestMapper {
-        return $this->request_mapper;
+        return $this->getRequestMapper();
     }
 
     public static function isAjax() {
