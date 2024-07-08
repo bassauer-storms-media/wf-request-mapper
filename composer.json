@@ -1,25 +1,10 @@
 {
-    "name": "serjoscha87/php-request-mapper",
-    "type": "library",
-    "description": "auto router / mapper to do the heavy lifting for mapping requests to local fs files",
-    "keywords": ["php", "auto request mapping", "auto-router", "auto request to file mapping"],
-    "homepage": "https://github.com/serjoscha87/php-request-mapper",
-    "license": "MIT",
-
-    "authors": [
-        {
-            "name": "Serjoscha Bassauer"
-        }
-    ],
-
     "require": {
-        "php": ">=8.0"
+        "eftec/bladeone": "^4.12"
     },
-
     "autoload": {
-        "psr-4": {
-            "serjoscha87\\phpRequestMapper\\": "src/"
-        }
+        "classmap": [
+            "php-request-mapper"
+        ]
     }
-
 }
