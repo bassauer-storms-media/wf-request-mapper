@@ -34,6 +34,9 @@ class SolidUri {
         return $this->cleanUri;
     }
 
+    /**
+     * @return string the uri without any query
+     */
     public function getUri() : string {
         return $this->cleanUri;
     }
@@ -59,6 +62,7 @@ class SolidUri {
 
     /**
      * alias for equals
+     * @throws \Exception
      */
     public function eq(string|SolidUri $other) : bool {
         return $this->equals($other);

@@ -1,18 +1,27 @@
 <?php
 
+/**
+ * @noinspection PhpUnused
+ */
+
 namespace serjoscha87\phpRequestMapper;
 
-class DetailPage extends Page implements IPage {
+/**
+ * @method getFilePath()
+ *  inherited @see Page
+ */
+class DetailPage/*->Page->PageBase*/ extends Page /* @see PageBase (transitive inheritance)*/ implements IPage {
 
     protected string $query = '';
 
-    public function __construct(RequestMapper $request_mapper, $filePath, string $query = '') {
+    public function __construct(RequestMapper $requestMapper, string $filePath, string $query = '') /** @see Page::__construct */ {
         $this->query = $query;
-        parent::__construct($request_mapper, $filePath);
+        parent::__construct($requestMapper, $filePath);
     }
 
     /**
      * @return ?string the name of the parent that contains the actual detail page file. Prefixed with "detail-"
+     * @throws \Exception
      */
     public function getName() : string|null {
         return $this->filePath ? sprintf('detail-%s', basename($this->getBasePath())) : null;

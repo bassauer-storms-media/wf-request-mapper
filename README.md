@@ -8,6 +8,12 @@
 
 > README STILL ON THE WAY TO COMPLETENESS <
 
+## Implementation examples / tests:
+
+Perhaps those examples render the complete README unnecessary.
+
+https://github.com/serjoscha87/php-request-mapper/tree/tests
+
 ## Purpose
 
 Ever though that it can not be that hard to reflect pretty-url requets to files on your server's file-system? Well - trying it you will quickly face edge cases that will convince you of the opposite.
@@ -146,6 +152,12 @@ $myCustomRequestMapper = new RequestMapper('/my-emulation-url', new RequestMappe
     new BasePathConfig(/*...*/)
 ));
 ```
+
+### Mapping Priority 
+
+TODO 
+
+... higher values mean higher priority ...
 
 ### Defaults and fallbacks
 

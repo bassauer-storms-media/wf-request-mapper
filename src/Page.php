@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @noinspection PhpUnused
+ */
+
 namespace serjoscha87\phpRequestMapper;
 
 /*
@@ -8,10 +12,14 @@ namespace serjoscha87\phpRequestMapper;
 
 class Page extends PageBase implements IPage {
 
-    protected ?string $filePath = null;
+    public array $customData = []; // for user defined data that for example, can be set in the onPageInstantiationComplete callback to add some additional information to the page object and which can then be addressed in the page-file itself
 
-    public function __construct(RequestMapper $request_mapper, $filePath) {
-        $this->request_mapper/*< inherited from PageBase */ = $request_mapper;
+    public function __construct(RequestMapper $requestMapper, string $filePath) {
+        /**
+         * $this->requestMapper @see PageBase
+         * $this->filePath @see PageBase
+         */
+        $this->requestMapper = $requestMapper;
         $this->filePath = $filePath;
     }
 
@@ -23,7 +31,7 @@ class Page extends PageBase implements IPage {
      * @return string|null filename without extension and path (if the path is available)
      */
     public function getName() : string|null {
-        return $this->filePath ? basename($this->filePath, $this->request_mapper->getPageFileExtension()) : null;
+        return $this->filePath ? basename($this->filePath, $this->requestMapper->getPageFileExtension()) : null;
     }
 
     /**
@@ -31,13 +39,6 @@ class Page extends PageBase implements IPage {
      */
     public function getFilePath() : ?string {
         return $this->filePath;
-    }
-
-    /**
-     * @param string|null $filePath
-     */
-    public function setFilePath(?string $filePath) : void {
-        $this->filePath = $filePath;
     }
 
 }

@@ -2,44 +2,82 @@
 
 declare(strict_types=1);
 
-/*
- * aktuell noch todo:
- * prios fertig bauen
- * appendMapping etc implementieren
- */
-
 namespace serjoscha87\phpRequestMapper;
 
 /**
- * Class description lorem ipsum
+ * The Main RequestMapper class that handles the request mapping logic
+ *
  *
  * Methods delegated to the current mapping object:
- * @method getSolidRequestBase - delegated to the current mapping object @see Mapping::<methodName>
- * @method isDefaultMapping - delegated to the current mapping object @see Mapping::<methodName>
- * @method setDefaultPagePath - delegated to the current mapping object @see Mapping::<methodName>
- * @method getDefaultPagePath - delegated to the current mapping object @see Mapping::<methodName>
- * @method setPageBasePath - delegated to the current mapping object @see Mapping::<methodName>
- * @method getPageBasePath - delegated to the current mapping object @see Mapping::<methodName>
- * @method set404PageClass - delegated to the current mapping object @see Mapping::<methodName>
- * @method get404PageClass - delegated to the current mapping object @see Mapping::<methodName>
- * @method set200PageClass - delegated to the current mapping object @see Mapping::<methodName>
- * @method get200PageClass - delegated to the current mapping object @see Mapping::<methodName>
- * @method setPageFileExtension - delegated to the current mapping object @see Mapping::<methodName>
- * @method getPageFileExtension - delegated to the current mapping object @see Mapping::<methodName>
- * @method setDetailPageEnabled - delegated to the current mapping object @see Mapping::<methodName>
- * @method isDetailPageEnabled - delegated to the current mapping object @see Mapping::<methodName>
- * @method setDetailPageClass - delegated to the current mapping object @see Mapping::<methodName>
- * @method getDetailPageClass - delegated to the current mapping object @see Mapping::<methodName>
- * @method setDetailPageIdentifier - delegated to the current mapping object @see Mapping::<methodName>
- * @method getDetailPageIdentifier - delegated to the current mapping object @see Mapping::<methodName>
- * @method setStrip - delegated to the current mapping object @see Mapping::<methodName>
- * @method getStrip - delegated to the current mapping object @see Mapping::<methodName>
- * @method getRouteMap - delegated to the current mapping object @see Mapping::<methodName>
- * @method setRouteMap - delegated to the current mapping object @see Mapping::<methodName>
+ *
+ * @method getSolidRequestMatcherString
+ *      @see Mapping::getSolidRequestMatcherString
+ *
+ * @method isDefaultMapping
+ *      @see Mapping::isDefaultMapping
+ *
+ * @method setDefaultPagePath
+ *      @see Mapping::setDefaultPagePath
+ *
+ * @method getDefaultPagePathSolid
+ *      @see Mapping::getDefaultPagePathSolid
+ *
+ * @method setPageBasePath
+ *      @see Mapping::setPageBasePath
+ *
+ * @method getPageBasePath
+ *      @see Mapping::getPageBasePath
+ *
+ * @method set404PageClass
+ *      @see Mapping::set404PageClass
+ *
+ * @method get404PageClass
+ *      @see Mapping::get404PageClass
+ *
+ * @method set200PageClass
+ *      @see Mapping::set200PageClass
+ *
+ * @method get200PageClass
+ *      @see Mapping::get200PageClass
+ *
+ * @method setPageFileExtension
+ *      @see Mapping::setPageFileExtension
+ *
+ * @method getPageFileExtension
+ *      @see Mapping::getPageFileExtension
+ *
+ * @method setDetailPageEnabled
+ *      @see Mapping::setDetailPageEnabled
+ *
+ * @method isDetailPageEnabled
+ *      @see Mapping::isDetailPageEnabled
+ *
+ * @method setDetailPageClass
+ *      @see Mapping::setDetailPageClass
+ *
+ * @method getDetailPageClass
+ *      @see Mapping::getDetailPageClass
+ *
+ * @method setDetailPageIdentifier
+ *      @see Mapping::setDetailPageIdentifier
+ *
+ * @method getDetailPageIdentifier
+ *      @see Mapping::getDetailPageIdentifier
+ *
+ * @method setStrip
+ *      @see Mapping::setStrip
+ *
+ * @method getStrip
+ *      @see Mapping::getStrip
+ *
+ * @method getRouteMap
+ *      @see Mapping::getRouteMap
+ *
+ * @method setRouteMap
+ *      @see Mapping::setRouteMap
+ *
  */
 class RequestMapper {
-
-    // TODO unify variable naming -> .._.. vs no .._..
 
     private bool $ran = false; // state var to determine whether the run method was called yet or not
 
@@ -50,15 +88,11 @@ class RequestMapper {
 
     private ?array $mappings;
 
-    private ?bool $page_file_exists = null;
+    private ?bool $pageFileExists = null;
 
-    private bool $is_detail_page_request = false;
+    private bool $isDetailPageRequest = false;
 
     private ?IPage $page = null;
-
-    // TODO das $DETERMINE_INSTANCED_BY kann eigentlich raus... braucht keine sau und funktioniert gerade nicht mehr richtig - war ursprünglich um rauszufinden ob die istantz durch currentRequest instanziiert wurde ...
-    public static $DETERMINE_INSTANCED_BY = false; // if true the instanced_by property will be set to the class name that instanced the RequestMapper instance
-    private ?string $instanced_by = null; // can internally be used to store who instanced this class - if its null it can be considered user-code/implementation instanced
 
     private array $callbacks = [];
 
@@ -76,20 +110,13 @@ class RequestMapper {
         if($mappings instanceof IDefaultMapping)
             $mappings = [$mappings];
 
-        if(self::$DETERMINE_INSTANCED_BY)
-            d('>>>>>', debug_backtrace()); // $this->instanced_by = debug_backtrace()[0]['class'];
-
         $this->mappings = $mappings;
 
         if(self::$primaryInstance === null)
             self::$primaryInstance = &$this;
 
-        error_log('run? '.( $run? 'yes' : 'no'));
-
         if($run)
             $this->run();
-
-        //CurrentRequest::$requestMappers[] = &$this;
 
     }
 
@@ -104,15 +131,31 @@ class RequestMapper {
             ($this->callbacks['afterUpdate'])($this, $this->page);
     }
 
-    public function requestMatches(Mapping &$mapping, bool $exact = false) {
+    public function requestMatches(Mapping &$mapping, ?int $overrideMatchingMethod = null) {
+
+        if($mapping->isDefaultMapping())
+            return $this->solidUri->getUri() === '/';
+
         if($mapping->getMatchingMode() === Mapping::MATCHING_MODE_CUSTOM_CALLBACK)
-            return (\Closure::bind($mapping->getCustomRequestBaseCheck(), $mapping))($mapping, $this->solidUri, $this);
-        return $exact ? $this->solidUri->getUri() === $mapping->getSolidRequestBase() : str_starts_with($this->solidUri->getUri(), $mapping->getSolidRequestBase());
+            return (\Closure::bind($mapping->getRequestMatcher(), $mapping))($mapping, $this->solidUri, $this);
+
+        return match($overrideMatchingMethod ?? $mapping->getMatchingMethod()) {
+            Mapping::MATCHING_METHOD_EXACT                 => $this->solidUri->getUri() === $mapping->getRequestMatcher()->getUri(),
+            Mapping::MATCHING_METHOD_STR_STARTS_WITH       => str_starts_with($this->solidUri->getUri(), $mapping->getRequestMatcher()->getUri()),
+            Mapping::MATCHING_METHOD_STR_CONTAINS          => str_contains($this->solidUri->getUri(), $mapping->getRequestMatcher()->getUri()),
+            Mapping::MATCHING_METHOD_REGEX                 => preg_match('~'.$mapping->getRequestMatcher()->getUri().'~', $this->solidUri->getUri()) === 1,
+            default => false
+        };
     }
 
+    /**
+     * @param string|SolidUri|null $uri the request uri (as SolidUri instance or simple string) to run the mapping logic against or null to use the current request uri
+     * @return void
+     * @throws \Exception
+     */
     public function run (string|SolidUri|null $uri = null) : void {
 
-        if(isset($this->callbacks['beforeRun'])) // todo this seems to be triggered twice ... why ?!
+        if(isset($this->callbacks['beforeRun']))
             ($this->callbacks['beforeRun'])($this);
 
         if($this->ran) // force more clean implementation of this class
@@ -124,36 +167,50 @@ class RequestMapper {
 
         $this->solidUri = $solidUri = $uri instanceof SolidUri ? $uri->getUri() : new SolidUri($uri);
 
-        if(empty($this->mappings)) // && empty(self::$global_mappings))
+        if(empty($this->mappings))
             $mappings = [Mapping::createDefault()];
         else
-            $mappings = $this->mappings; // ?? self::$global_mappings;
+            $mappings = $this->mappings;;
 
         $defaultMappings = 0;
-        $defaultMapping = null; // (this can always be just a single one)
+        $defaultMapping = null; // (this can never be more than one)
 
-        //$onMatch = null; // this is similar to the onMatch callback but is triggered earlier (before the page coordination logic) so it allows to manipulate passed objects as needed before execution of the page logic
-
-        if($this->respectPriorities) { // TODO in die README dokumentieren, dass priorities mit höherem wert eine höhere priorität haben
+        if($this->respectPriorities) {
             $mappingsByPriority = [];
-            $priorityOverlapsCount = []; // TODO
-            foreach ($mappings as $mapping) {
+            foreach ($mappings as $i => $mapping) {
                 /* @var $mapping Mapping */
                 if($mapping->getPriority() === null)
-                    throw new \Exception('Mapping with requestBase >'.$mapping->getSolidRequestBase() .'< does not have a priority set. Please make sure to set a priority for every mapping when the RequestMapper is configured to respect priorities.');
+                    throw new \Exception("Mapping at configuration-position >$i< does not have a priority set. Please make sure to set a priority for every mapping when the RequestMapper is configured to respect priorities.");
+
+                while(array_key_exists($mapping->getPriority(), $mappingsByPriority)) {
+                    if($mapping->getOnPriorityCollisionCallback() !== null) {
+                        $newPriority = ($mapping->getOnPriorityCollisionCallback())(/* current iterated mapping */$mapping, /* mapping it collides with */$mappingsByPriority[$mapping->getPriority()], /* rm inst */ $this);
+                        if(gettype($newPriority) !== 'integer')
+                            throw new \Exception('The onPriorityCollision callback must return an integer that represents the new priority for the mapping.');
+                        if($newPriority === $mapping->getPriority())
+                            throw new \Exception('The onPriorityCollision callback must return a different priority than the current priority of the mapping. Make sure to return current mapping prio +=1 or -=1');
+                        $mapping->setPriority($newPriority);
+                    }
+                    else
+                        throw new \Exception('Multiple mappings with the same priority found. Please make sure to implement the the onPriorityCollision callback to move mappings up or down the priority chain as they collide.');
+                }
 
                 $mappingsByPriority[$mapping->getPriority()] = $mapping;
             }
-            krsort($mappingsByPriority);
+            krsort($mappingsByPriority, SORT_NUMERIC);
             $mappings = $mappingsByPriority;
         }
 
-        foreach ($mappings as $mapping) {
+        foreach ($mappings as $mappingIndex => $mapping) {
             /* @var $mapping Mapping */
 
-            if($mapping->getOnTapCallback() !== null)
-                ($mapping->getOnTapCallback())($this); // dereference the closure in your target callback method's signature ( ...->onTap(function(\Closure &$fn, RequestMapper $mapper) { ... }) to set the closure
+            if(!$mapping instanceof Mapping)
+                throw new \Exception('Invalid mapping parameter found. Please make sure to only pass instances of Mapping to the RequestMapper.');
 
+            if($mapping->getOnTapCallback() !== null)
+                ($mapping->getOnTapCallback())($mapping, $this);
+
+            // Note: default mappings can't be skipped by returning false in the onMatch callback
             if($mapping->isDefaultMapping()) {
                 $defaultMappings++;
                 if($defaultMappings > 1)
@@ -165,8 +222,13 @@ class RequestMapper {
                 continue; // skip default mapping for the check because they need to checked with a lower priority then the concrete mappings
             }
 
-            if($this->requestMatches($mapping)) // TODO es wäre ganz cool wenn hier irgendwie das onMatch callback berücksichtigt werden könnte damit man im on match false zurück geben kann damit dann doch geskippt wird
-                $this->currentMapping = $mapping;
+            if($this->currentMapping === null /* < make sure the first matching mapping will be used, no matter if the default mapping has already been found or not */ && $this->requestMatches($mapping)) {
+                $skipMapping = false;
+                if($mapping->getOnMatchCallback() !== null) // allow the user to do some logic and perhaps decide to skip the match through his implementation of the onMatch callback (by returning false)
+                    $skipMapping = ($mapping->getOnMatchCallback())($mapping, $this) === false;
+                if(!$skipMapping)
+                    $this->currentMapping = $mapping;
+            }
 
             // break the loop after the default mapping and the first matching mapping is found
             if($this->currentMapping !== null && $defaultMapping !== null)
@@ -177,45 +239,39 @@ class RequestMapper {
         if($this->currentMapping === null)
             $this->currentMapping = $defaultMapping;
 
-        if(!$this->currentMapping)
+        if(!$this->currentMapping) // TODO remove? -> this can actually never happen because the class automatically instances a default mapping if no mapping is passed by the implementor
             throw new \Exception('No mapping found for the current request: ' . $uri. '. You also do not have a default mapping! Please make sure to always have a default mapping!');
 
         $this->currentMapping->setRequestMapper($this);
 
-        //if($onMatch !== null) // todo das hier dann auch weg - onMatch callback vom ende unten nach hier oben verschieben
-            //($onMatch)($this->currentMapping, $this);
-        if($this->currentMapping->getOnMatchCallback() !== null)
-            ($this->currentMapping->getOnMatchCallback())($this->currentMapping, $this);
+        // Destination file without an extension and yet without the base-path. Note that the dest-file may be not existing (checks following later)
+        $str_SolidDestFilePath = ($this->requestIsMappingRequestBase() /* < eg.1: 4 req. '/' => true ; eg.2: Mapping::createFor('admin') -> 4 req. '/admin' => true ; 4 req. '/admin/<something>' => false */
+            ? $this->getDefaultPagePathSolid() // returns the path to the default page file (without the actual page base) - so for example 'home'
+            : $solidUri->getUri()
+        );
 
-        //CurrentRequest::$currentMapping = $this->currentMapping;
+        $this->applyStrip($str_SolidDestFilePath); // (method also ensures the path stays solid)
 
-        // Destination file without an extension. Note that the dest-file may be not existing (checks following later)
-        $str_SolidDestFilePath = ($this->requestIsMappingRequestBase() ? (new SolidUri($this->getDefaultPagePath()))->getUri() : $solidUri->getUri());
+        $this->isDetailPageRequest = $this->isDetailPageEnabled() && str_contains($str_SolidDestFilePath, ('/' . $this->getDetailPageIdentifier() . '/'));
 
-        $this->applyRequestBaseStrip($str_SolidDestFilePath); // (method also ensures the url stays solid)
-
-        $this->is_detail_page_request = $this->isDetailPageEnabled() && str_contains($str_SolidDestFilePath, ('/' . $this->getDetailPageIdentifier() . '/'));
-
-        $str_PageBasePath = $this->getPageBasePath();
-
-        $str_FullQualifiedPageFilePath = $this->getPageFilePath($str_SolidDestFilePath, $str_PageBasePath);
+        $str_FullQualifiedPageFilePath = $this->getPageFilePath($str_SolidDestFilePath, $this->getPageBasePath());
 
         /** @var $obj_Page IPage instance of a class that implements IPage */
-        if($this->isDetailPageRequest()) {
-            $this->page_file_exists = true;
-            $str_DetailPageClass = $this->getDetailPageClass();
-
-            $str_SolidUri = $solidUri->getUri();
-            $pretty_query = substr( $str_SolidUri, strpos($str_SolidUri, $this->getDetailPageIdentifier()) + strlen($this->getDetailPageIdentifier()) + 1 ); // the default query string can still be accessed via $_GET
-            $obj_Page = new $str_DetailPageClass($this, $str_FullQualifiedPageFilePath, $pretty_query); /** @see DetailPage (default) */
-        }
-        elseif($str_FullQualifiedPageFilePath && is_file($str_FullQualifiedPageFilePath)) { // simple existing page
-            $this->page_file_exists = true;
-            $str_200PageClass = $this->get200PageClass();
-            $obj_Page = new $str_200PageClass($this, $str_FullQualifiedPageFilePath); /** @see Page (default) */
+        if($str_FullQualifiedPageFilePath && is_file($str_FullQualifiedPageFilePath)) {
+            $this->pageFileExists = true;
+            if($this->isDetailPageRequest()) {
+                $str_DetailPageClass = $this->getDetailPageClass();
+                $str_SolidUri = $solidUri->getUri();
+                $pretty_query = substr( $str_SolidUri, strpos($str_SolidUri, $this->getDetailPageIdentifier()) + strlen($this->getDetailPageIdentifier()) + 1 ); // the default query string can still be accessed via $_GET
+                $obj_Page = new $str_DetailPageClass($this, $str_FullQualifiedPageFilePath, $pretty_query); /** @see DetailPage (default) */
+            }
+            else { // simple existing page
+                $str_200PageClass = $this->get200PageClass();
+                $obj_Page = new $str_200PageClass($this, $str_FullQualifiedPageFilePath); /** @see Page (default) */
+            }
         }
         else { // page not found / 404
-            $this->page_file_exists = false;
+            $this->pageFileExists = false;
             $str_404PageClass = $this->get404PageClass(); /** @see Default404Page (default) */
             $obj_Page = new $str_404PageClass($this);
         }
@@ -233,7 +289,7 @@ class RequestMapper {
 
     }
 
-    public function needsRedirect() {
+    public function needsRedirect() : ?bool {
         $nr = $this->getRedirectUri();
         return $nr === null ? null : $nr !== false;
     }
@@ -258,7 +314,7 @@ class RequestMapper {
             $str_RedirectPath = $route_map[$str_SolidUri];
         }
         elseif($this->isDefaultPageRequest()) { // redirect the default page (for example '/home') to '/'
-            $str_RedirectPath = $this->getSolidRequestBase();
+            $str_RedirectPath = '/' . ltrim(rtrim($str_SolidUri, $this->getDefaultPagePathSolid()), '/');
         }
         elseif($this->isRequestDoubleBase()) { // for example, if we got this fs struc. (with default mappings): /pages/foo/foo.php and the request ist /foo/foo -> redirect to /foo
             $str_RedirectPath = rtrim(substr(
@@ -299,19 +355,21 @@ class RequestMapper {
      * or if the request is '/admin/dashboard' and the default page of this additional mapping is 'dashboard.php' this method would also return true while it will return false when the request is '/admin' or '/admin/foobar'
      */
     public function isDefaultPageRequest () : bool {
-        if($this->currentMapping->getMatchingMode() === Mapping::MATCHING_MODE_CUSTOM_CALLBACK)
-            //$requestBaselessUri = $this->solidUri->getUri();
-            return str_ends_with($this->solidUri->getUri(), $this->getDefaultPagePath());
+        if($this->currentMapping->isDefaultMapping())
+            return $this->solidUri->getUri() === $this->getDefaultPagePathSolid();
+
+        if($this->currentMapping->getMatchingMode() === Mapping::MATCHING_MODE_CUSTOM_CALLBACK || $this->currentMapping->getMatchingMethod() === Mapping::MATCHING_METHOD_STR_CONTAINS) // TODO second check is fuzzy
+            return str_ends_with($this->solidUri->getUri(), $this->getDefaultPagePathSolid());
         else
-            $requestBaselessUri = str_replace($this->getSolidRequestBase(), '', $this->solidUri->getUri());
-        return $requestBaselessUri === $this->getDefaultPagePath() || $this->solidUri->getUri() === $this->getDefaultPagePath();
+            $requestBaselessUri = str_replace($this->getSolidRequestMatcherString() ?? '', '', $this->solidUri->getUri());
+        return $requestBaselessUri === $this->getDefaultPagePathSolid() || $this->solidUri->getUri() === $this->getDefaultPagePathSolid();
     }
 
     /**
      * Returns true/false whether the current request is a detail page request or not or null if the dynamic detail page feature is disabled
      */
     public function isDetailPageRequest () : bool|null {
-        return $this->is_detail_page_request;
+        return $this->isDetailPageRequest;
     }
 
     public function getPage () : null|IPage {
@@ -334,7 +392,7 @@ class RequestMapper {
     }
 
     public function pageFileExists() : bool {
-        return $this->page_file_exists;
+        return $this->pageFileExists;
     }
 
     public static function isReal404() : bool {
@@ -344,13 +402,14 @@ class RequestMapper {
 
     /**
      * @param string|null $str_SolidUri if passed, this method assumes that it is a solid uri!
+     * @return string|null returns the full qualified file path to the page file or null if the file does not exist
      */
-    private function getPageFilePath(?string $str_SolidUri = null, ?string $str_BasePath = null) : ?string {
+    private function getPageFilePath(?string $str_SolidUri = null, ?string $str_SolidBasePath = null) : ?string {
         $str_SolidUri ??= $this->solidUri->getUri();
-        $str_BasePath ??= $this->getPageBasePath();
-        $str_PageFileExtension = $this->getPageFileExtension();
+        $str_SolidBasePath ??= $this->getPageBasePath(); /** @see Mapping::getPageBasePath - it's a solid base path! */
+        $str_PageFileExtension = $this->getPageFileExtension(); /** @see Mapping::getPageFileExtension - returns a trimed unified extension that always looks like ".<ext>" (eg. ".php" or ".blade.php"). E.g. "..<ext>" could never happen */
 
-        if (is_file($f = sprintf('%s%s%s', $str_BasePath, $str_SolidUri, $str_PageFileExtension))) {
+        if (is_file($f = sprintf('%s%s%s', $str_SolidBasePath, $str_SolidUri, $str_PageFileExtension))) {
             /*
               * example: for resolving requests like this
               * /foobar/test
@@ -361,7 +420,7 @@ class RequestMapper {
         }
         elseif ($this->isDetailPageRequest()) {
             $page_file = substr($str_SolidUri, 0, strpos($str_SolidUri, $this->getDetailPageIdentifier()));
-            $file = sprintf('%s%s%s%s', $str_BasePath, $page_file, $this->getDetailPageIdentifier(), $str_PageFileExtension);
+            $file = sprintf('%s%s%s%s', $str_SolidBasePath, $page_file, $this->getDetailPageIdentifier(), $str_PageFileExtension);
         }
         else {
             /*
@@ -370,7 +429,7 @@ class RequestMapper {
              * to fs structure like this:
              * /pages/foobar/test/test.blade.php
              */
-            $f = sprintf('%s%s/%s%s', $str_BasePath, $str_SolidUri, basename($str_SolidUri), $str_PageFileExtension);
+            $f = sprintf('%s%s/%s%s', $str_SolidBasePath, $str_SolidUri, basename($str_SolidUri), $str_PageFileExtension);
             if(is_file($f))
                 $file = $f;
             else
@@ -391,58 +450,73 @@ class RequestMapper {
      * @return bool|null returns null if a custom request base check is used - otherwise true/false for the matching result
      */
     private function requestIsMappingRequestBase() : ?bool {
-        if($this->currentMapping->getMatchingMode() === Mapping::MATCHING_MODE_CUSTOM_CALLBACK)
-            return null;
-        return $this->requestMatches($this->currentMapping, true);
+        if( $this->currentMapping->getMatchingMode() === Mapping::MATCHING_MODE_CUSTOM_CALLBACK || in_array($this->currentMapping->getMatchingMethod(), [Mapping::MATCHING_METHOD_STR_CONTAINS, Mapping::MATCHING_METHOD_REGEX]) ) {
+            $uri = $this->solidUri->getUri();
+            $this->applyStrip($uri);
+            return $uri === '/';
+        }
+        return $this->requestMatches($this->currentMapping, Mapping::MATCHING_METHOD_EXACT);
     }
 
-    /*
-     * the global mappings are available through ALL RequestMapper instances that may exist.
-     * But the RequestMapper always prioritizes the local mappings before the global mappings.
+    /**
+     * Just plain add a mapping - this method actually does the same as @see appendMapping but makes your code more readable/understandable if the RequestMapper is configured to respect priorities
      */
-    /*public static function setGlobalMappings(array/ *<Mapping>* / $mappings) {
-        self::$global_mappings = $mappings;
-    }
-    public static function getGlobalMappings() : array|null {
-        return self::$global_mappings;
-    }
-    public static function addGlobalMapping(Mapping $mapping) {
-        self::$global_mappings[] = $mapping;
-    }*/
-
     public function addMapping (Mapping $mapping) : self {
         $this->mappings[] = $mapping;
         return $this;
     }
 
-    // todo:
-    // appendMapping, prependMapping
-    // getMappingByRequestBase
-    // usePriorityQueue -> dann erlauben das setPriority auf Mapping gesetz wird /// neuer name: respectPriorities
+    /**
+     * Alias for addMapping
+     * Note that appending mappings actually only makes sense when the mapper is not configured to respect priorities
+     */
+    public function appendMapping (Mapping $mapping) : self {
+        return $this->addMapping($mapping);
+    }
+
+    /**
+     * Note that prepending mappings actually only makes sense when the mapper is not configured to respect priorities
+     */
+    public function prependMapping (Mapping $mapping) : self {
+        array_unshift($this->mappings, $mapping);
+        return $this;
+    }
+
+    // TODO add 'caching' as this method is called the first time... (create internal assoc array with str:reqBase => $mapping obj) so the next time this method is called we can spare some performance
+    public function findMappingByRequestBase(string $requestBase) : ?Mapping {
+        foreach ($this->mappings as $mapping) {
+            /* @var $mapping Mapping */
+            if($mapping->getMatchingMode() === Mapping::MATCHING_MODE_STR_METHODS && $mapping->getSolidRequestMatcherString() === (new SolidUri($requestBase))->getUri())
+                return $mapping;
+        }
+        return null;
+    }
 
     /**
      * Removes the configured string (fixed string or dynamic request base) from the passed file path while keeping the file path solid (the path passed is considered extension-less)
+     *
+     * This is necessary because the file path is built from the request uri - as soon as we have additional mapping with some special request base prefix, we need to strip this request base part off, otherwise reflecting the uri to the filesystem will fail.
      *
      * This method is automatically called by the RequestMapper class with the run & update method
      *
      * @param string &$destFile the path ref to the file the stripping should be applied to - note that this method will modify the passed string
      */
-    private function applyRequestBaseStrip(string &$destFile) : void {
-
+    private function applyStrip(string &$destFile) : void {
         if($this->currentMapping->isDefaultMapping() || $this->currentMapping->getStrip() === null)
             return;
-
-        if($this->currentMapping->getMatchingMode() === Mapping::MATCHING_MODE_CUSTOM_CALLBACK)
-            $url = null; // because we don't have a solid request base when using the custom request base check
-        else
-            $url = (new SolidUri($this->currentMapping->getSolidRequestBase()))->getUri();
-
-        if($url === null || str_starts_with($this->solidUri->getUri(), $url)) {
-            if($url !== null && $this->currentMapping->getStrip() === Mapping::STRIP_REQUEST_BASE)
-                $destFile = (new SolidUri(str_replace($url, '', $destFile)))->getUri();
-            else // < when 'strip' is a custom string
-                $destFile = (new SolidUri(str_replace($this->currentMapping->getStrip(), '', $destFile)))->getUri();
+        elseif (is_string($this->currentMapping->getStrip()))
+            $part2Strip = $this->currentMapping->getStrip();
+        elseif(is_callable($this->currentMapping->getStrip()))
+            $part2Strip = ($this->currentMapping->getStrip())($destFile, $this->currentMapping, $this);
+        elseif($this->currentMapping->getMatchingMethod() === Mapping::MATCHING_METHOD_STR_CONTAINS && $this->currentMapping->getStrip() === Mapping::STRIP_REQUEST_MATCHER_STRING) {
+            $matches = [];
+            preg_match('~\/(?<partialMatch>\w*'.trim($this->getSolidRequestMatcherString(), '/').'\w*)\/?~', $destFile, $matches);
+            $part2Strip = $matches['partialMatch'] ?? '';
         }
+        else
+            $part2Strip = $this->getSolidRequestMatcherString();
+
+        $destFile = (new SolidUri(str_replace($part2Strip, '', $destFile)))->getUri();
     }
 
     /*
@@ -451,8 +525,6 @@ class RequestMapper {
     public function handle(\Closure $fn) : mixed {
         if(!$this->ran)
             throw new \Exception('The RequestMapper run method has not yet been invoked. Make sure to call the run method before trying to handle the request.');
-
-        //self::$primaryInstance = &$this; // TODO da das hier das callback ist, das nur für die treffende instanz ausgeführt wird, sollte es im grunde funktionieren hier die primäre instanz zu setzen, allerdings ist die frage was dann mit den makePrimary methode und so ist... funktionieren die dann noch? brauchen wir die dann noch?
 
         if(!RequestMapper::isReal404()) {
             $rm = $this;
@@ -497,11 +569,13 @@ class RequestMapper {
      * try to delegate most method calls to the current mapping instance, so we have those methods proxied directly on the RequestMapper instance
      */
     public function __call(string $methodName, array $arguments) {
+        // TODO guess there are new methods @ Mapping class that are not yet listed here...
         if(in_array($methodName, [
-            'getSolidRequestBase',
+            //'getSolidRequestBase',
+            'getSolidRequestMatcherString',
             'isDefaultMapping',
             'setDefaultPagePath',
-            'getDefaultPagePath',
+            'getDefaultPagePathSolid',
             'setPageBasePath',
             'getPageBasePath',
             'set404PageClass',
@@ -571,8 +645,10 @@ class RequestMapper {
         return $this;
     }
 
-    public function getInstancedBy() : string|null {
-        return $this->instanced_by;
-    }
-
 }
+
+/*
+ * Last version of the mapper before adding different matching methods and before going away from just being able to use a simple request base:
+ * https://github.com/serjoscha87/php-request-mapper/tree/07cec2f4dde83ca82a9d56bdfe7a4c0d3a7c2938
+ * (just because at this point the class was much more simple, easier to understand and plain)
+ */
