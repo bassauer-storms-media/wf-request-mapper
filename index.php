@@ -1,5 +1,9 @@
 <?php
 
+/*
+ * before testing run
+ * > composer require serjoscha87/php-request-mapper
+ */
 require_once 'vendor/autoload.php';
 
 require_once '../sage.phar'; // for d() debugging function - https://github.com/php-sage/sage
