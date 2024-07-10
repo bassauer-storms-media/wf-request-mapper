@@ -1,5 +1,5 @@
  
-home.php <
+<h1>pages/home.php</h1>
 
 <?php
 
@@ -21,7 +21,7 @@ d(
 );
 
 if(defined('LANG')) {
-    d(constant('LANG'));
+    d('lang:', constant('LANG'));
 }
 else {
     d('no lang defined');

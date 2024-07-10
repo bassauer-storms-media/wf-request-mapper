@@ -1,4 +1,5 @@
-bla.php <
+
+<h1>pages/foobar/bla.php</h1>
 
 <?php
 

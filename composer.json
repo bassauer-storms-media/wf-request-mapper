@@ -1,10 +1,6 @@
 {
     "require": {
-        "eftec/bladeone": "^4.12"
-    },
-    "autoload": {
-        "classmap": [
-            "php-request-mapper"
-        ]
+        "eftec/bladeone": "^4.12",
+        "serjoscha87/php-request-mapper": "dev-master"
     }
 }

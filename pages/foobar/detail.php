@@ -4,7 +4,7 @@ detail!
 
 <?php
 
-d($_GET);
+d($_GET, $this->getQuery());
 /*
 d(
     CurrentRequest::getPage()->getName(),

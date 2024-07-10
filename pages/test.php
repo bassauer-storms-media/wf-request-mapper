@@ -1,4 +1,5 @@
-test.php <
+
+<h1>pages/test.php</h1>
 
 <?php
 
