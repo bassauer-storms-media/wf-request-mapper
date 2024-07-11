@@ -33,8 +33,6 @@ d(
     RequestMapper::getCurrentPage()->getName(),
     RequestMapper::getCurrentPage()->getBasePath(),
     RequestMapper::getCurrentPage()->getFilePath(),
-    //
-    //CurrentRequest::use($rm)->getRequestMapper()->getPage()->getName(),
     $rm->getPage()->getName()
 );
 
@@ -44,16 +42,3 @@ if(defined('LANG')) {
 else {
     d('no lang defined');
 }
-
-return;
-
-d(
-    CurrentPage::get(),
-    CurrentPage::get()->getName(),
-    CurrentPage::get()->getBasePath(),
-    CurrentPage::get()->getFilePath(),
-    //
-    //CurrentRequest::use($rm)->getRequestMapper()->getPage()->getName(),
-    $rm->getPage()->getName()
-);
-?>

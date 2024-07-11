@@ -4,13 +4,6 @@
 <hr>
 
 <?php
-/*
-d(
-    \serjoscha87\phpRequestMapper\CurrentRequest::getPage(),
-    \serjoscha87\phpRequestMapper\CurrentRequest::getPage()->getRequestMapper(),
-    \serjoscha87\phpRequestMapper\CurrentRequest::getPage()->getFilePath()
-);
-*/
 
 d(
     \serjoscha87\phpRequestMapper\RequestMapper::getCurrentPage(),
